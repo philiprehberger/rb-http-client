@@ -2,6 +2,7 @@
 
 require_relative "http_client/version"
 require_relative "http_client/response"
+require_relative "http_client/connection"
 require_relative "http_client/client"
 
 module Philiprehberger
