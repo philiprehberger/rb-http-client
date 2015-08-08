@@ -14,14 +14,22 @@ module Philiprehberger
       # @param timeout [Integer] Read/open timeout in seconds
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
-      def initialize(base_url:, headers: {}, timeout: 30, retries: 0, retry_delay: 1)
+      # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
+      def initialize(base_url:, headers: {}, timeout: 30, retries: 0, retry_delay: 1, retry_backoff: :fixed)
         @base_url = base_url.chomp("/")
         @default_headers = headers
         @timeout = timeout
         @retries = retries
         @retry_delay = retry_delay
+        @retry_backoff = retry_backoff
         @interceptors = []
+        @request_count = 0
       end
+
+      # Returns the total number of requests executed.
+      #
+      # @return [Integer]
+      attr_reader :request_count
 
       # Register a request/response interceptor.
       #
@@ -41,11 +49,25 @@ module Philiprehberger
       # @param path [String] Request path appended to the base URL
       # @param params [Hash] Query parameters
       # @param headers [Hash] Additional headers for this request
+      # @param timeout [Integer, nil] Optional per-request timeout override
       # @return [Response]
-      def get(path, params: {}, headers: {})
+      def get(path, params: {}, headers: {}, timeout: nil)
         uri = build_uri(path, params)
         request = Net::HTTP::Get.new(uri)
-        execute(uri, request, headers)
+        execute(uri, request, headers, timeout: timeout)
+      end
+
+      # Perform a HEAD request.
+      #
+      # @param path [String] Request path appended to the base URL
+      # @param params [Hash] Query parameters
+      # @param headers [Hash] Additional headers for this request
+      # @param timeout [Integer, nil] Optional per-request timeout override
+      # @return [Response]
+      def head(path, params: {}, headers: {}, timeout: nil)
+        uri = build_uri(path, params)
+        request = Net::HTTP::Head.new(uri)
+        execute(uri, request, headers, timeout: timeout)
       end
 
       # Perform a POST request.
@@ -55,11 +77,11 @@ module Philiprehberger
       # @param json [Hash, Array, nil] JSON-serializable body (sets Content-Type automatically)
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def post(path, body: nil, json: nil, headers: {})
+      def post(path, body: nil, json: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Post.new(uri)
         set_body(request, body, json, headers)
-        execute(uri, request, headers)
+        execute(uri, request, headers, timeout: timeout)
       end
 
       # Perform a PUT request.
@@ -69,11 +91,11 @@ module Philiprehberger
       # @param json [Hash, Array, nil] JSON-serializable body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def put(path, body: nil, json: nil, headers: {})
+      def put(path, body: nil, json: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Put.new(uri)
         set_body(request, body, json, headers)
-        execute(uri, request, headers)
+        execute(uri, request, headers, timeout: timeout)
       end
 
       # Perform a PATCH request.
@@ -83,11 +105,11 @@ module Philiprehberger
       # @param json [Hash, Array, nil] JSON-serializable body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def patch(path, body: nil, json: nil, headers: {})
+      def patch(path, body: nil, json: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Patch.new(uri)
         set_body(request, body, json, headers)
-        execute(uri, request, headers)
+        execute(uri, request, headers, timeout: timeout)
       end
 
       # Perform a DELETE request.
@@ -95,10 +117,10 @@ module Philiprehberger
       # @param path [String] Request path
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def delete(path, headers: {})
+      def delete(path, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Delete.new(uri)
-        execute(uri, request, headers)
+        execute(uri, request, headers, timeout: timeout)
       end
     end
   end

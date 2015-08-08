@@ -90,6 +90,23 @@ client = Philiprehberger::HttpClient.new(
 response = client.get("/unstable-endpoint")
 ```
 
+### Exponential backoff
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  retries: 3,
+  retry_delay: 1,
+  retry_backoff: :exponential
+)
+```
+
+### Per-request timeout
+
+```ruby
+response = client.get("/slow-endpoint", timeout: 60)
+```
+
 ### All HTTP methods
 
 ```ruby
@@ -98,6 +115,7 @@ client.post("/resource", json: { key: "value" })
 client.put("/resource/1", json: { key: "updated" })
 client.patch("/resource/1", json: { key: "patched" })
 client.delete("/resource/1")
+client.head("/resource")
 ```
 
 ## API
@@ -111,6 +129,19 @@ client.delete("/resource/1")
 | `timeout`     | Integer | `30`    | Read/open timeout in seconds         |
 | `retries`     | Integer | `0`     | Retry attempts on network errors     |
 | `retry_delay` | Numeric | `1`     | Seconds between retries              |
+| `retry_backoff` | String/Symbol | `:fixed` | Backoff strategy — `:fixed` or `:exponential` |
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `get(path, **opts)` | Send GET request |
+| `post(path, **opts)` | Send POST request |
+| `put(path, **opts)` | Send PUT request |
+| `patch(path, **opts)` | Send PATCH request |
+| `delete(path, **opts)` | Send DELETE request |
+| `head(path, **opts)` | Send HEAD request |
+| `request_count` | Total number of requests made by this client |
 
 ### `Response`
 

@@ -31,44 +31,51 @@ module Philiprehberger
         merged.each { |key, value| request[key] = value }
       end
 
-      def execute(uri, request, extra_headers)
+      def execute(uri, request, extra_headers, timeout: nil)
         apply_headers(request, extra_headers)
+        @request_count += 1
 
         context = { request: { uri: uri, method: request.method, headers: request.to_hash } }
         run_interceptors(context)
 
-        response = perform_with_retries(uri, request)
+        response = perform_with_retries(uri, request, timeout: timeout)
         context[:response] = response
         run_interceptors(context)
 
         response
       end
 
-      def perform_with_retries(uri, request)
+      def perform_with_retries(uri, request, timeout: nil)
         attempts = 0
         begin
-          perform_request(uri, request)
+          perform_request(uri, request, timeout: timeout)
         rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
                Net::OpenTimeout, Net::ReadTimeout, SocketError => e
           attempts += 1
           raise e unless attempts <= @retries
 
-          sleep(@retry_delay)
+          delay = if @retry_backoff == :exponential
+                    @retry_delay * (2**attempts)
+                  else
+                    @retry_delay
+                  end
+          sleep(delay)
           retry
         end
       end
 
-      def perform_request(uri, request)
-        http = build_http(uri)
+      def perform_request(uri, request, timeout: nil)
+        http = build_http(uri, timeout: timeout)
         raw = http.request(request)
         build_response(raw)
       end
 
-      def build_http(uri)
+      def build_http(uri, timeout: nil)
+        effective_timeout = timeout || @timeout
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == "https"
-        http.open_timeout = @timeout
-        http.read_timeout = @timeout
+        http.open_timeout = effective_timeout
+        http.read_timeout = effective_timeout
         http
       end
 
