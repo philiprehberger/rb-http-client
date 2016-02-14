@@ -54,14 +54,13 @@ module Philiprehberger
           attempts += 1
           raise e unless attempts <= @retries
 
-          delay = if @retry_backoff == :exponential
-                    @retry_delay * (2**attempts)
-                  else
-                    @retry_delay
-                  end
-          sleep(delay)
+          sleep(retry_delay_for(attempts))
           retry
         end
+      end
+
+      def retry_delay_for(attempt)
+        @retry_backoff == :exponential ? @retry_delay * (2**attempt) : @retry_delay
       end
 
       def perform_request(uri, request, timeout: nil)
