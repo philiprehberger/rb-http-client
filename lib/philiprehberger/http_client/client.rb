@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "base64"
 require "net/http"
 require "uri"
 require "json"
@@ -22,6 +23,7 @@ module Philiprehberger
         @retries = retry_options.fetch(:retries, 0)
         @retry_delay = retry_options.fetch(:retry_delay, 1)
         @retry_backoff = retry_options.fetch(:retry_backoff, :fixed)
+        @retry_on_status = retry_options[:retry_on_status]
         @interceptors = []
         @request_count = 0
       end
@@ -75,12 +77,13 @@ module Philiprehberger
       # @param path [String] Request path
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body (sets Content-Type automatically)
+      # @param form [Hash, nil] Form-urlencoded body (sets Content-Type automatically)
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def post(path, body: nil, json: nil, headers: {}, timeout: nil)
+      def post(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Post.new(uri)
-        set_body(request, body, json, headers)
+        set_body(request, body, json, form, headers)
         execute(uri, request, headers, timeout: timeout)
       end
 
@@ -89,12 +92,13 @@ module Philiprehberger
       # @param path [String] Request path
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body
+      # @param form [Hash, nil] Form-urlencoded body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def put(path, body: nil, json: nil, headers: {}, timeout: nil)
+      def put(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Put.new(uri)
-        set_body(request, body, json, headers)
+        set_body(request, body, json, form, headers)
         execute(uri, request, headers, timeout: timeout)
       end
 
@@ -103,12 +107,13 @@ module Philiprehberger
       # @param path [String] Request path
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body
+      # @param form [Hash, nil] Form-urlencoded body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def patch(path, body: nil, json: nil, headers: {}, timeout: nil)
+      def patch(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
         uri = build_uri(path)
         request = Net::HTTP::Patch.new(uri)
-        set_body(request, body, json, headers)
+        set_body(request, body, json, form, headers)
         execute(uri, request, headers, timeout: timeout)
       end
 
@@ -121,6 +126,26 @@ module Philiprehberger
         uri = build_uri(path)
         request = Net::HTTP::Delete.new(uri)
         execute(uri, request, headers, timeout: timeout)
+      end
+
+      # Set a Bearer token for all subsequent requests.
+      #
+      # @param token [String] the bearer token
+      # @return [self]
+      def bearer_token(token)
+        @default_headers["authorization"] = "Bearer #{token}"
+        self
+      end
+
+      # Set Basic auth credentials for all subsequent requests.
+      #
+      # @param username [String]
+      # @param password [String]
+      # @return [self]
+      def basic_auth(username, password)
+        encoded = Base64.strict_encode64("#{username}:#{password}")
+        @default_headers["authorization"] = "Basic #{encoded}"
+        self
       end
     end
   end

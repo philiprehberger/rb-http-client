@@ -14,7 +14,7 @@ RSpec.describe Philiprehberger::HttpClient do
 
   describe "VERSION" do
     it "has a version number" do
-      expect(Philiprehberger::HttpClient::VERSION).to eq("0.2.0")
+      expect(Philiprehberger::HttpClient::VERSION).to eq("0.3.0")
     end
   end
 
@@ -227,9 +227,9 @@ RSpec.describe Philiprehberger::HttpClient do
       response = client_exp.get("/flaky")
 
       expect(response.status).to eq(200)
+      expect(client_exp).to have_received(:sleep).with(1).ordered
       expect(client_exp).to have_received(:sleep).with(2).ordered
       expect(client_exp).to have_received(:sleep).with(4).ordered
-      expect(client_exp).to have_received(:sleep).with(8).ordered
     end
   end
 
@@ -281,6 +281,87 @@ RSpec.describe Philiprehberger::HttpClient do
 
       expect(captured[:request][:method]).to eq("GET")
       expect(captured[:response].status).to eq(200)
+    end
+  end
+
+  describe "retry on status codes" do
+    it "retries on specified HTTP status codes" do
+      client_retry = described_class.new(
+        base_url: base_url, retries: 2, retry_delay: 0, retry_on_status: [429, 503]
+      )
+
+      stub_request(:get, "https://api.example.com/rate-limited")
+        .to_return(status: 429, body: "too many requests")
+        .then
+        .to_return(status: 200, body: "ok")
+
+      response = client_retry.get("/rate-limited")
+
+      expect(response.status).to eq(200)
+    end
+
+    it "returns the last response when retries exhausted on status" do
+      client_retry = described_class.new(
+        base_url: base_url, retries: 1, retry_delay: 0, retry_on_status: [503]
+      )
+
+      stub_request(:get, "https://api.example.com/down")
+        .to_return(status: 503, body: "unavailable")
+
+      response = client_retry.get("/down")
+
+      expect(response.status).to eq(503)
+    end
+  end
+
+  describe "form body" do
+    it "sends a form-urlencoded body" do
+      stub_request(:post, "https://api.example.com/login")
+        .with(
+          body: "username=alice&password=secret",
+          headers: { "content-type" => "application/x-www-form-urlencoded" }
+        )
+        .to_return(status: 200, body: '{"token":"abc"}')
+
+      response = client.post("/login", form: { username: "alice", password: "secret" })
+
+      expect(response.status).to eq(200)
+    end
+  end
+
+  describe "bearer_token" do
+    it "sets the authorization header for subsequent requests" do
+      client.bearer_token("mytoken123")
+
+      stub_request(:get, "https://api.example.com/me")
+        .with(headers: { "authorization" => "Bearer mytoken123" })
+        .to_return(status: 200, body: '{"id":1}')
+
+      response = client.get("/me")
+
+      expect(response.status).to eq(200)
+    end
+
+    it "returns self for chaining" do
+      expect(client.bearer_token("token")).to be(client)
+    end
+  end
+
+  describe "basic_auth" do
+    it "sets the authorization header with base64 credentials" do
+      client.basic_auth("user", "pass")
+
+      stub_request(:get, "https://api.example.com/me")
+        .with(headers: { "authorization" => "Basic dXNlcjpwYXNz" })
+        .to_return(status: 200, body: '{"id":1}')
+
+      response = client.get("/me")
+
+      expect(response.status).to eq(200)
+    end
+
+    it "returns self for chaining" do
+      expect(client.basic_auth("u", "p")).to be(client)
     end
   end
 end
