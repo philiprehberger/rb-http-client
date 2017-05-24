@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Add License badge to README
+- Add bug_tracker_uri to gemspec
+- Add Development section to README
+- Add Requirements section to README
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
