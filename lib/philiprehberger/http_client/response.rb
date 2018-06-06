@@ -8,12 +8,14 @@ module Philiprehberger
       attr_reader :status, :body, :headers
 
       # @param status [Integer] HTTP status code
-      # @param body [String] Response body
+      # @param body [String, nil] Response body
       # @param headers [Hash] Response headers
-      def initialize(status:, body:, headers: {})
+      # @param streaming [Boolean] Whether the response was streamed
+      def initialize(status:, body:, headers: {}, streaming: false)
         @status = status
         @body = body
         @headers = headers
+        @streaming = streaming
       end
 
       # Returns true if the status code is in the 2xx range.
@@ -21,6 +23,13 @@ module Philiprehberger
       # @return [Boolean]
       def ok?
         status >= 200 && status < 300
+      end
+
+      # Returns true if the response was streamed.
+      #
+      # @return [Boolean]
+      def streaming?
+        @streaming
       end
 
       # Parses the response body as JSON.

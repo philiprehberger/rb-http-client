@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- Custom error hierarchy: `Error`, `TimeoutError`, `NetworkError`, `HttpError` for structured error handling
+- Streaming responses via block parameter — yield body chunks instead of buffering entire response
+- Multipart form data support via `multipart:` parameter for file uploads
+- Per-phase timeouts: `open_timeout:`, `read_timeout:`, `write_timeout:` on constructor and per-request
+- Response validation via `expect:` option — auto-raises `HttpError` if status not in expected list
+
+### Changed
+
+- Network errors (`Errno::ECONNREFUSED`, `Errno::ECONNRESET`, etc.) now raise `NetworkError` instead of raw system errors
+- Timeout errors (`Net::OpenTimeout`, `Net::ReadTimeout`) now raise `TimeoutError` instead of raw Net errors
+
 ## 0.3.3
 
 - Fix CI: version test and rubocop compliance

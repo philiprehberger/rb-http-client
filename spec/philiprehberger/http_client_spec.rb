@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "stringio"
+require "tempfile"
 
 RSpec.describe Philiprehberger::HttpClient do
   let(:base_url) { "https://api.example.com" }
@@ -163,13 +165,22 @@ RSpec.describe Philiprehberger::HttpClient do
       expect(response.status).to eq(200)
     end
 
-    it "raises after exhausting retries" do
+    it "raises NetworkError after exhausting retries on connection errors" do
       client_with_retries = described_class.new(base_url: base_url, retries: 1, retry_delay: 0)
 
       stub_request(:get, "https://api.example.com/down")
         .to_raise(Errno::ECONNREFUSED)
 
-      expect { client_with_retries.get("/down") }.to raise_error(Errno::ECONNREFUSED)
+      expect { client_with_retries.get("/down") }.to raise_error(Philiprehberger::HttpClient::NetworkError)
+    end
+
+    it "raises TimeoutError after exhausting retries on timeout errors" do
+      client_with_retries = described_class.new(base_url: base_url, retries: 1, retry_delay: 0)
+
+      stub_request(:get, "https://api.example.com/slow")
+        .to_raise(Net::ReadTimeout)
+
+      expect { client_with_retries.get("/slow") }.to raise_error(Philiprehberger::HttpClient::TimeoutError)
     end
   end
 
@@ -196,6 +207,7 @@ RSpec.describe Philiprehberger::HttpClient do
       allow(http_double).to receive(:use_ssl=)
       allow(http_double).to receive(:open_timeout=)
       allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
 
       raw_response = Net::HTTPResponse.allocate
       allow(raw_response).to receive(:code).and_return("200")
@@ -362,6 +374,516 @@ RSpec.describe Philiprehberger::HttpClient do
 
     it "returns self for chaining" do
       expect(client.basic_auth("u", "p")).to be(client)
+    end
+  end
+
+  # === New feature tests ===
+
+  describe "custom error hierarchy" do
+    it "defines Error as base class" do
+      expect(Philiprehberger::HttpClient::Error.superclass).to eq(StandardError)
+    end
+
+    it "defines TimeoutError inheriting from Error" do
+      expect(Philiprehberger::HttpClient::TimeoutError.superclass).to eq(Philiprehberger::HttpClient::Error)
+    end
+
+    it "defines NetworkError inheriting from Error" do
+      expect(Philiprehberger::HttpClient::NetworkError.superclass).to eq(Philiprehberger::HttpClient::Error)
+    end
+
+    it "defines HttpError inheriting from Error" do
+      expect(Philiprehberger::HttpClient::HttpError.superclass).to eq(Philiprehberger::HttpClient::Error)
+    end
+
+    it "wraps Net::OpenTimeout as TimeoutError" do
+      stub_request(:get, "https://api.example.com/timeout")
+        .to_raise(Net::OpenTimeout)
+
+      expect { client.get("/timeout") }.to raise_error(Philiprehberger::HttpClient::TimeoutError)
+    end
+
+    it "wraps Net::ReadTimeout as TimeoutError" do
+      stub_request(:get, "https://api.example.com/timeout")
+        .to_raise(Net::ReadTimeout.new("read timeout"))
+
+      expect { client.get("/timeout") }.to raise_error(Philiprehberger::HttpClient::TimeoutError)
+    end
+
+    it "wraps Errno::ECONNREFUSED as NetworkError" do
+      stub_request(:get, "https://api.example.com/network")
+        .to_raise(Errno::ECONNREFUSED)
+
+      expect { client.get("/network") }.to raise_error(Philiprehberger::HttpClient::NetworkError)
+    end
+
+    it "wraps Errno::ECONNRESET as NetworkError" do
+      stub_request(:get, "https://api.example.com/network")
+        .to_raise(Errno::ECONNRESET)
+
+      expect { client.get("/network") }.to raise_error(Philiprehberger::HttpClient::NetworkError)
+    end
+
+    it "wraps SocketError as NetworkError" do
+      stub_request(:get, "https://api.example.com/network")
+        .to_raise(SocketError)
+
+      expect { client.get("/network") }.to raise_error(Philiprehberger::HttpClient::NetworkError)
+    end
+
+    it "allows catching all errors with base Error class" do
+      stub_request(:get, "https://api.example.com/fail")
+        .to_raise(Net::ReadTimeout.new("timeout"))
+
+      expect { client.get("/fail") }.to raise_error(Philiprehberger::HttpClient::Error)
+    end
+
+    it "includes response in HttpError" do
+      stub_request(:get, "https://api.example.com/bad")
+        .to_return(status: 400, body: "bad request")
+
+      error = nil
+      begin
+        client.get("/bad", expect: [200])
+      rescue Philiprehberger::HttpClient::HttpError => e
+        error = e
+      end
+
+      expect(error).not_to be_nil
+      expect(error.response.status).to eq(400)
+      expect(error.message).to include("HTTP 400")
+    end
+  end
+
+  describe "streaming responses" do
+    it "yields chunks to the block" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:each_header)
+      allow(raw_response).to receive(:read_body).and_yield("chunk1").and_yield("chunk2")
+
+      allow(http_double).to receive(:request).and_yield(raw_response)
+
+      chunks = []
+      response = client.get("/large-file") { |chunk| chunks << chunk }
+
+      expect(chunks).to eq(%w[chunk1 chunk2])
+      expect(response.body).to be_nil
+      expect(response.streaming?).to be(true)
+    end
+
+    it "returns a response with streaming flag" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:each_header)
+      allow(raw_response).to receive(:read_body)
+
+      allow(http_double).to receive(:request).and_yield(raw_response)
+
+      response = client.get("/stream") { |_chunk| }
+
+      expect(response.status).to eq(200)
+      expect(response.streaming?).to be(true)
+    end
+
+    it "captures headers from streaming response" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:each_header).and_yield("content-type", "text/plain")
+      allow(raw_response).to receive(:read_body)
+
+      allow(http_double).to receive(:request).and_yield(raw_response)
+
+      response = client.get("/stream") { |_chunk| }
+
+      expect(response.headers["content-type"]).to eq("text/plain")
+    end
+
+    it "works with POST streaming" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:each_header)
+      allow(raw_response).to receive(:read_body).and_yield("data")
+
+      allow(http_double).to receive(:request).and_yield(raw_response)
+
+      chunks = []
+      response = client.post("/upload", body: "data") { |chunk| chunks << chunk }
+
+      expect(chunks).to eq(["data"])
+      expect(response.streaming?).to be(true)
+    end
+
+    it "non-streaming responses have streaming? as false" do
+      stub_request(:get, "https://api.example.com/normal")
+        .to_return(status: 200, body: "ok")
+
+      response = client.get("/normal")
+
+      expect(response.streaming?).to be(false)
+    end
+  end
+
+  describe "multipart form data" do
+    it "sends multipart body with string fields" do
+      stub_request(:post, "https://api.example.com/upload")
+        .with { |req| req.headers["Content-Type"]&.include?("multipart/form-data") }
+        .to_return(status: 200, body: "ok")
+
+      response = client.post("/upload", multipart: { name: "vacation", location: "beach" })
+
+      expect(response.status).to eq(200)
+    end
+
+    it "sends multipart body with file objects" do
+      file = StringIO.new("file contents")
+      allow(file).to receive(:path).and_return("/tmp/photo.jpg")
+
+      stub_request(:post, "https://api.example.com/upload")
+        .with { |req|
+          req.headers["Content-Type"]&.include?("multipart/form-data") &&
+            req.body.include?("file contents") &&
+            req.body.include?("photo.jpg")
+        }
+        .to_return(status: 200, body: '{"id":1}')
+
+      response = client.post("/upload", multipart: { file: file, name: "vacation" })
+
+      expect(response.status).to eq(200)
+    end
+
+    it "includes boundary in content-type header" do
+      stub_request(:post, "https://api.example.com/upload")
+        .with { |req|
+          ct = req.headers["Content-Type"]
+          ct&.start_with?("multipart/form-data; boundary=")
+        }
+        .to_return(status: 200, body: "ok")
+
+      client.post("/upload", multipart: { key: "value" })
+    end
+
+    it "builds proper multipart structure" do
+      body, content_type = Philiprehberger::HttpClient::Multipart.build({ name: "test", age: "25" })
+
+      expect(content_type).to start_with("multipart/form-data; boundary=")
+      expect(body).to include("Content-Disposition: form-data; name=\"name\"")
+      expect(body).to include("test")
+      expect(body).to include("Content-Disposition: form-data; name=\"age\"")
+      expect(body).to include("25")
+    end
+
+    it "builds file parts with filename and content-type" do
+      file = StringIO.new("binary data")
+      allow(file).to receive(:path).and_return("/tmp/image.png")
+
+      body, = Philiprehberger::HttpClient::Multipart.build({ image: file })
+
+      expect(body).to include('filename="image.png"')
+      expect(body).to include("Content-Type: application/octet-stream")
+      expect(body).to include("binary data")
+    end
+
+    it "rewinds file after reading" do
+      file = StringIO.new("data")
+      allow(file).to receive(:path).and_return("/tmp/test.txt")
+
+      Philiprehberger::HttpClient::Multipart.build({ file: file })
+
+      expect(file.pos).to eq(0)
+    end
+
+    it "works with PUT method" do
+      stub_request(:put, "https://api.example.com/resource/1")
+        .with { |req| req.headers["Content-Type"]&.include?("multipart/form-data") }
+        .to_return(status: 200, body: "ok")
+
+      response = client.put("/resource/1", multipart: { name: "updated" })
+
+      expect(response.status).to eq(200)
+    end
+  end
+
+  describe "per-phase timeouts" do
+    it "sets individual timeout phases from constructor" do
+      phase_client = described_class.new(
+        base_url: base_url, open_timeout: 5, read_timeout: 30, write_timeout: 10
+      )
+
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      phase_client.get("/test")
+
+      expect(http_double).to have_received(:open_timeout=).with(5)
+      expect(http_double).to have_received(:read_timeout=).with(30)
+      expect(http_double).to have_received(:write_timeout=).with(10)
+    end
+
+    it "per-phase timeouts override general timeout" do
+      phase_client = described_class.new(
+        base_url: base_url, timeout: 60, open_timeout: 5, read_timeout: 15
+      )
+
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      phase_client.get("/test")
+
+      expect(http_double).to have_received(:open_timeout=).with(5)
+      expect(http_double).to have_received(:read_timeout=).with(15)
+      expect(http_double).to have_received(:write_timeout=).with(60)
+    end
+
+    it "per-request phase timeouts override constructor timeouts" do
+      phase_client = described_class.new(
+        base_url: base_url, open_timeout: 5, read_timeout: 30
+      )
+
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      phase_client.get("/test", open_timeout: 2, read_timeout: 10)
+
+      expect(http_double).to have_received(:open_timeout=).with(2)
+      expect(http_double).to have_received(:read_timeout=).with(10)
+    end
+
+    it "falls back to general timeout when no phase timeout set" do
+      phase_client = described_class.new(base_url: base_url, timeout: 45)
+
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      phase_client.get("/test")
+
+      expect(http_double).to have_received(:open_timeout=).with(45)
+      expect(http_double).to have_received(:read_timeout=).with(45)
+      expect(http_double).to have_received(:write_timeout=).with(45)
+    end
+
+    it "supports per-request phase timeouts on POST" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("201")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      client.post("/data", json: { a: 1 }, write_timeout: 60, read_timeout: 120)
+
+      expect(http_double).to have_received(:write_timeout=).with(60)
+      expect(http_double).to have_received(:read_timeout=).with(120)
+    end
+
+    it "supports per-request phase timeouts on DELETE" do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("204")
+      allow(raw_response).to receive(:body).and_return("")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      client.delete("/resource/1", open_timeout: 3)
+
+      expect(http_double).to have_received(:open_timeout=).with(3)
+    end
+  end
+
+  describe "response validation (expect:)" do
+    it "does not raise when status matches expected" do
+      stub_request(:get, "https://api.example.com/ok")
+        .to_return(status: 200, body: "ok")
+
+      response = client.get("/ok", expect: [200])
+
+      expect(response.status).to eq(200)
+    end
+
+    it "accepts multiple expected status codes" do
+      stub_request(:get, "https://api.example.com/created")
+        .to_return(status: 201, body: "created")
+
+      response = client.get("/created", expect: [200, 201])
+
+      expect(response.status).to eq(201)
+    end
+
+    it "raises HttpError when status not in expected list" do
+      stub_request(:get, "https://api.example.com/fail")
+        .to_return(status: 404, body: "not found")
+
+      expect {
+        client.get("/fail", expect: [200])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+        expect(e.response.status).to eq(404)
+        expect(e.message).to include("HTTP 404")
+      }
+    end
+
+    it "raises HttpError for server errors when expecting success" do
+      stub_request(:post, "https://api.example.com/create")
+        .to_return(status: 500, body: "internal error")
+
+      expect {
+        client.post("/create", json: { a: 1 }, expect: [201])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+        expect(e.response.status).to eq(500)
+      }
+    end
+
+    it "works with PUT requests" do
+      stub_request(:put, "https://api.example.com/resource/1")
+        .to_return(status: 200, body: "ok")
+
+      response = client.put("/resource/1", json: { a: 1 }, expect: [200])
+
+      expect(response.status).to eq(200)
+    end
+
+    it "works with PATCH requests" do
+      stub_request(:patch, "https://api.example.com/resource/1")
+        .to_return(status: 422, body: "unprocessable")
+
+      expect {
+        client.patch("/resource/1", json: { a: 1 }, expect: [200])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+    end
+
+    it "works with DELETE requests" do
+      stub_request(:delete, "https://api.example.com/resource/1")
+        .to_return(status: 204, body: "")
+
+      response = client.delete("/resource/1", expect: [204])
+
+      expect(response.status).to eq(204)
+    end
+
+    it "works with HEAD requests" do
+      stub_request(:head, "https://api.example.com/health")
+        .to_return(status: 503, body: "")
+
+      expect {
+        client.head("/health", expect: [200])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+    end
+
+    it "does not validate when expect is nil" do
+      stub_request(:get, "https://api.example.com/fail")
+        .to_return(status: 500, body: "error")
+
+      response = client.get("/fail")
+
+      expect(response.status).to eq(500)
+    end
+
+    it "HttpError includes truncated body in message" do
+      long_body = "x" * 300
+      stub_request(:get, "https://api.example.com/long")
+        .to_return(status: 400, body: long_body)
+
+      expect {
+        client.get("/long", expect: [200])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+        expect(e.message.length).to be < 250
+      }
+    end
+
+    it "interceptors run before validation" do
+      interceptor_called = false
+
+      client.use do |context|
+        interceptor_called = true if context[:response]
+      end
+
+      stub_request(:get, "https://api.example.com/fail")
+        .to_return(status: 400, body: "bad")
+
+      expect {
+        client.get("/fail", expect: [200])
+      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+
+      expect(interceptor_called).to be(true)
     end
   end
 end
