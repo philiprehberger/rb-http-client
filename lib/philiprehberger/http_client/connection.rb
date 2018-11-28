@@ -16,16 +16,19 @@ module Philiprehberger
 
       RETRYABLE_ERRORS = (TIMEOUT_ERRORS + NETWORK_ERRORS).freeze
 
+      include Retries
+      include BodyEncoder
+
       private
 
-      def request_with_body(http_class, path, **opts, &block)
+      def request_with_body(http_class, path, **opts, &)
         headers = opts.fetch(:headers, {})
         uri = build_uri(path)
         request = http_class.new(uri)
-        set_body(request, opts[:body], opts[:json], opts[:form], opts[:multipart], headers)
+        apply_body(request, opts, headers)
         execute(uri, request, headers, timeout: opts[:timeout], open_timeout: opts[:open_timeout],
                                        read_timeout: opts[:read_timeout], write_timeout: opts[:write_timeout],
-                                       expect: opts[:expect], &block)
+                                       expect: opts[:expect], &)
       end
 
       def build_uri(path, params = {})
@@ -38,75 +41,25 @@ module Philiprehberger
         uri
       end
 
-      def set_body(request, body, json_body, form_body, multipart_body, headers)
-        if json_body
-          request.body = JSON.generate(json_body)
-          headers["content-type"] ||= "application/json"
-        elsif form_body
-          request.body = URI.encode_www_form(form_body)
-          headers["content-type"] ||= "application/x-www-form-urlencoded"
-        elsif multipart_body
-          built_body, content_type = Multipart.build(multipart_body)
-          request.body = built_body
-          headers["content-type"] = content_type
-        elsif body
-          request.body = body
-        end
-      end
-
       def apply_headers(request, extra_headers)
         merged = @default_headers.merge(extra_headers)
         merged.each { |key, value| request[key] = value }
       end
 
-      def execute(uri, request, extra_headers, timeout: nil, open_timeout: nil, read_timeout: nil,
-                  write_timeout: nil, expect: nil, &block)
+      def execute(uri, request, extra_headers, expect: nil, **timeout_opts, &block)
         apply_headers(request, extra_headers)
         @request_count += 1
+        run_execute_pipeline(uri, request, expect, **timeout_opts, &block)
+      end
 
+      def run_execute_pipeline(uri, request, expect, **timeout_opts, &block)
         context = { request: { uri: uri, method: request.method, headers: request.to_hash } }
         run_interceptors(context)
-
-        timeout_opts = { timeout: timeout, open_timeout: open_timeout,
-                         read_timeout: read_timeout, write_timeout: write_timeout }
-
         response = perform_with_retries(uri, request, **timeout_opts, &block)
         context[:response] = response
         run_interceptors(context)
-
         validate_response!(response, expect) if expect
-
         response
-      end
-
-      def perform_with_retries(uri, request, **timeout_opts, &block)
-        attempts = 0
-        loop do
-          response = perform_request(uri, request, **timeout_opts, &block)
-          return response unless retry_on_status?(response.status, attempts)
-
-          wait_and_retry(attempts += 1)
-        rescue *TIMEOUT_ERRORS => e
-          raise TimeoutError, e.message unless (attempts += 1) <= @retries
-
-          sleep(retry_delay_for(attempts))
-        rescue *NETWORK_ERRORS => e
-          raise NetworkError, e.message unless (attempts += 1) <= @retries
-
-          sleep(retry_delay_for(attempts))
-        end
-      end
-
-      def retry_on_status?(status, attempts)
-        @retry_on_status&.include?(status) && attempts < @retries
-      end
-
-      def wait_and_retry(attempt)
-        sleep(retry_delay_for(attempt))
-      end
-
-      def retry_delay_for(attempt)
-        @retry_backoff == :exponential ? @retry_delay * (2**(attempt - 1)) : @retry_delay
       end
 
       def perform_request(uri, request, **timeout_opts, &block)
@@ -120,40 +73,37 @@ module Philiprehberger
         end
       end
 
-      def perform_streaming_request(http, request)
+      def perform_streaming_request(http, request, &block)
         response_headers = {}
         status = nil
 
         http.request(request) do |raw|
           status = raw.code.to_i
           raw.each_header { |k, v| response_headers[k] = v }
-          raw.read_body do |chunk|
-            yield chunk
-          end
+          raw.read_body(&block)
         end
 
         Response.new(status: status, body: nil, headers: response_headers, streaming: true)
       end
 
-      def build_http(uri, timeout: nil, open_timeout: nil, read_timeout: nil, write_timeout: nil)
-        effective_timeout = timeout || @timeout
+      def build_http(uri, **timeout_opts)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == "https"
-        http.open_timeout = open_timeout || @open_timeout || effective_timeout
-        http.read_timeout = read_timeout || @read_timeout || effective_timeout
-        http.write_timeout = write_timeout || @write_timeout || effective_timeout
+        apply_timeouts(http, timeout_opts)
         http
+      end
+
+      def apply_timeouts(http, timeout_opts)
+        effective_timeout = timeout_opts[:timeout] || @timeout
+        http.open_timeout = timeout_opts[:open_timeout] || @open_timeout || effective_timeout
+        http.read_timeout = timeout_opts[:read_timeout] || @read_timeout || effective_timeout
+        http.write_timeout = timeout_opts[:write_timeout] || @write_timeout || effective_timeout
       end
 
       def build_response(raw)
         response_headers = {}
         raw.each_header { |k, v| response_headers[k] = v }
-
-        Response.new(
-          status: raw.code.to_i,
-          body: raw.body || "",
-          headers: response_headers
-        )
+        Response.new(status: raw.code.to_i, body: raw.body || "", headers: response_headers)
       end
 
       def validate_response!(response, expected_statuses)
