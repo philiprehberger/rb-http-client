@@ -805,23 +805,29 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:get, "https://api.example.com/fail")
         .to_return(status: 404, body: "not found")
 
-      expect do
+      error = nil
+      begin
         client.get("/fail", expect: [200])
-      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
-        expect(e.response.status).to eq(404)
-        expect(e.message).to include("HTTP 404")
+      rescue Philiprehberger::HttpClient::HttpError => e
+        error = e
       end
+      expect(error).not_to be_nil
+      expect(error.response.status).to eq(404)
+      expect(error.message).to include("HTTP 404")
     end
 
     it "raises HttpError for server errors when expecting success" do
       stub_request(:post, "https://api.example.com/create")
         .to_return(status: 500, body: "internal error")
 
-      expect do
+      error = nil
+      begin
         client.post("/create", json: { a: 1 }, expect: [201])
-      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
-        expect(e.response.status).to eq(500)
+      rescue Philiprehberger::HttpClient::HttpError => e
+        error = e
       end
+      expect(error).not_to be_nil
+      expect(error.response.status).to eq(500)
     end
 
     it "works with PUT requests" do
@@ -874,11 +880,14 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:get, "https://api.example.com/long")
         .to_return(status: 400, body: long_body)
 
-      expect do
+      error = nil
+      begin
         client.get("/long", expect: [200])
-      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
-        expect(e.message.length).to be < 250
+      rescue Philiprehberger::HttpClient::HttpError => e
+        error = e
       end
+      expect(error).not_to be_nil
+      expect(error.message.length).to be < 250
     end
 
     it "interceptors run before validation" do
