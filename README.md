@@ -4,7 +4,7 @@
 [![CI](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
 
-Lightweight HTTP client wrapper with retries and interceptors. Zero dependencies — built on Ruby's stdlib `net/http`.
+Lightweight HTTP client wrapper with retries and interceptors.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ gem "philiprehberger-http_client"
 
 Or install directly:
 
-```sh
+```bash
 gem install philiprehberger-http_client
 ```
 
@@ -318,4 +318,4 @@ bundle exec rubocop
 
 ## License
 
-[MIT](LICENSE)
+MIT
