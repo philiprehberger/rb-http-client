@@ -1,15 +1,23 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
 ## [0.4.2] - 2026-03-20
 
 ### Fixed
 - Fix badge order and Gem Version badge URL in README
 
-## 0.4.1
+## [0.4.1] - 2026-03-18
 
+### Fixed
 - Fix RuboCop Style/StringLiterals violations in gemspec
 
-## 0.4.0
+## [0.4.0] - 2026-03-17
 
 ### Added
 
@@ -24,21 +32,18 @@
 - Network errors (`Errno::ECONNREFUSED`, `Errno::ECONNRESET`, etc.) now raise `NetworkError` instead of raw system errors
 - Timeout errors (`Net::OpenTimeout`, `Net::ReadTimeout`) now raise `TimeoutError` instead of raw Net errors
 
-## 0.3.3
+## [0.3.3] - 2026-03-16
 
+### Fixed
 - Fix CI: version test and rubocop compliance
 
-## 0.3.2
+## [0.3.2] - 2026-03-16
 
+### Changed
 - Add License badge to README
 - Add bug_tracker_uri to gemspec
 - Add Development section to README
 - Add Requirements section to README
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.1] - 2026-03-12
 
