@@ -7,6 +7,11 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-03-24
+
+### Changed
+- Expand test coverage to 85+ examples covering edge cases and error paths
+
 ## [0.4.5] - 2026-03-24
 
 ### Fixed
