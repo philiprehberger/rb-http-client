@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "securerandom"
+require 'securerandom'
 
 module Philiprehberger
   module HttpClient
@@ -42,7 +42,7 @@ module Philiprehberger
 
       # @api private
       def self.build_file_part(name, file, boundary)
-        filename = file.respond_to?(:path) ? File.basename(file.path) : "upload"
+        filename = file.respond_to?(:path) ? File.basename(file.path) : 'upload'
         content = read_file_content(file)
         disposition = "Content-Disposition: form-data; name=\"#{name}\"; filename=\"#{filename}\"#{CRLF}"
         "--#{boundary}#{CRLF}#{disposition}Content-Type: application/octet-stream#{CRLF}#{CRLF}#{content}#{CRLF}"
@@ -56,7 +56,7 @@ module Philiprehberger
 
       # @api private
       def self.build_field_part(name, value, boundary)
-        "".dup.tap do |part|
+        ''.dup.tap do |part|
           part << "--#{boundary}#{CRLF}"
           part << "Content-Disposition: form-data; name=\"#{name}\"#{CRLF}"
           part << CRLF

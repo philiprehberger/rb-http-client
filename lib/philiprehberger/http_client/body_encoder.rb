@@ -17,14 +17,14 @@ module Philiprehberger
         return unless json_body
 
         request.body = JSON.generate(json_body)
-        headers["content-type"] ||= "application/json"
+        headers['content-type'] ||= 'application/json'
       end
 
       def set_form_body(request, form_body, headers)
         return unless form_body
 
         request.body = URI.encode_www_form(form_body)
-        headers["content-type"] ||= "application/x-www-form-urlencoded"
+        headers['content-type'] ||= 'application/x-www-form-urlencoded'
       end
 
       def set_multipart_body(request, multipart_body, headers)
@@ -32,7 +32,7 @@ module Philiprehberger
 
         built_body, content_type = Multipart.build(multipart_body)
         request.body = built_body
-        headers["content-type"] = content_type
+        headers['content-type'] = content_type
       end
 
       def set_raw_body(request, body)

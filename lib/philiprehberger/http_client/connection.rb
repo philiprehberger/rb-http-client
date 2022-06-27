@@ -88,7 +88,7 @@ module Philiprehberger
 
       def build_http(uri, **timeout_opts)
         http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = uri.scheme == "https"
+        http.use_ssl = uri.scheme == 'https'
         apply_timeouts(http, timeout_opts)
         http
       end
@@ -107,7 +107,7 @@ module Philiprehberger
       def build_response(raw)
         response_headers = {}
         raw.each_header { |k, v| response_headers[k] = v }
-        Response.new(status: raw.code.to_i, body: raw.body || "", headers: response_headers)
+        Response.new(status: raw.code.to_i, body: raw.body || '', headers: response_headers)
       end
 
       def validate_response!(response, expected_statuses)
