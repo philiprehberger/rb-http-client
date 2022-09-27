@@ -7,6 +7,18 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-03-27
+
+### Added
+- Cookie jar with automatic Set-Cookie parsing and per-request Cookie header (`cookies: true` option)
+- Proxy support via `proxy:` option or `HTTP_PROXY`/`HTTPS_PROXY` environment variables
+- Automatic response decompression for gzip and deflate Content-Encoding
+- Configurable redirect following with `follow_redirects:` and `max_redirects:` options
+- Redirect chain tracking via `response.redirects` and `response.redirected?`
+- Request timing metrics via `response.metrics` (total_time, first_byte_time, dns_time, connect_time, tls_time)
+- `CookieJar` class with domain/path matching, expiration, and secure cookie handling
+- `Metrics` class for per-request timing breakdown
+
 ## [0.4.7] - 2026-03-26
 
 ### Fixed

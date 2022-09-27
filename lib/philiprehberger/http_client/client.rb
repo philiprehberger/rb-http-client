@@ -19,12 +19,19 @@ module Philiprehberger
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
+      # @param cookies [Boolean] Enable cookie jar for automatic cookie handling
+      # @param proxy [String, nil] Proxy URL (e.g., "http://proxy:8080"), also reads HTTP_PROXY/HTTPS_PROXY
+      # @param follow_redirects [Boolean] Follow 3xx redirects (default: true)
+      # @param max_redirects [Integer] Maximum number of redirects to follow (default: 5)
       def initialize(base_url:, headers: {}, timeout: 30, **opts)
         @base_url = base_url.chomp('/')
         @default_headers = headers
         @timeout = timeout
         assign_timeout_opts(opts)
         assign_retry_opts(opts)
+        assign_cookie_opts(opts)
+        assign_proxy_opts(opts)
+        assign_redirect_opts(opts)
         @interceptors = []
         @request_count = 0
       end
@@ -33,6 +40,11 @@ module Philiprehberger
       #
       # @return [Integer]
       attr_reader :request_count
+
+      # Returns the cookie jar (nil if cookies are disabled).
+      #
+      # @return [CookieJar, nil]
+      attr_reader :cookie_jar
 
       # Register a request/response interceptor.
       #
@@ -173,6 +185,28 @@ module Philiprehberger
         @retry_delay = opts.fetch(:retry_delay, 1)
         @retry_backoff = opts.fetch(:retry_backoff, :fixed)
         @retry_on_status = opts[:retry_on_status]
+      end
+
+      def assign_cookie_opts(opts)
+        @cookie_jar = opts[:cookies] ? CookieJar.new : nil
+      end
+
+      def assign_proxy_opts(opts)
+        @proxy_uri = resolve_proxy(opts[:proxy])
+      end
+
+      def assign_redirect_opts(opts)
+        @follow_redirects = opts.fetch(:follow_redirects, true)
+        @max_redirects = opts.fetch(:max_redirects, 5)
+      end
+
+      def resolve_proxy(proxy)
+        return URI.parse(proxy) if proxy.is_a?(String)
+
+        env_proxy = ENV['HTTPS_PROXY'] || ENV['HTTP_PROXY'] || ENV['https_proxy'] || ENV.fetch('http_proxy', nil)
+        env_proxy ? URI.parse(env_proxy) : nil
+      rescue URI::InvalidURIError
+        nil
       end
     end
   end

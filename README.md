@@ -2,7 +2,11 @@
 
 [![Tests](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://rubygems.org/gems/philiprehberger-http_client)
+[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/rb-http-client)](https://github.com/philiprehberger/rb-http-client/releases)
+[![Last updated](https://img.shields.io/github/last-commit/philiprehberger/rb-http-client)](https://github.com/philiprehberger/rb-http-client/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/rb-http-client/bug)](https://github.com/philiprehberger/rb-http-client/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/rb-http-client/enhancement)](https://github.com/philiprehberger/rb-http-client/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Lightweight HTTP client wrapper with retries and interceptors
@@ -230,6 +234,89 @@ client = Philiprehberger::HttpClient.new(
 # Delay sequence: 1s, 2s, 4s
 ```
 
+### Cookie jar
+
+Enable automatic cookie handling across requests:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://app.example.com",
+  cookies: true
+)
+
+# Login — server sends Set-Cookie header, cookie jar stores it
+client.post("/login", form: { user: "alice", pass: "secret" })
+
+# Subsequent requests automatically include the session cookie
+client.get("/dashboard")  # Cookie: session=abc123
+
+# Inspect stored cookies
+client.cookie_jar.size  # => 1
+client.cookie_jar.to_a  # => [#<Cookie name="session" ...>]
+client.cookie_jar.clear # remove all cookies
+```
+
+### Proxy support
+
+Route requests through an HTTP proxy:
+
+```ruby
+# Explicit proxy
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  proxy: "http://proxy.corp.net:8080"
+)
+
+# Or set HTTP_PROXY / HTTPS_PROXY environment variables
+# and the client auto-detects them
+client = Philiprehberger::HttpClient.new(base_url: "https://api.example.com")
+```
+
+### Response compression
+
+Gzip and deflate responses are decompressed automatically. The client sends `Accept-Encoding: gzip, deflate` by default:
+
+```ruby
+response = client.get("/large-payload")
+response.body  # already decompressed, regardless of Content-Encoding
+```
+
+### Redirect following
+
+Redirects are followed automatically (up to 5 by default):
+
+```ruby
+# Customize redirect behavior
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://example.com",
+  max_redirects: 3,
+  follow_redirects: true  # default
+)
+
+response = client.get("/old-page")
+response.redirected?  # => true
+response.redirects    # => ["https://example.com/new-page"]
+
+# Disable redirect following
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://example.com",
+  follow_redirects: false
+)
+```
+
+### Request metrics
+
+Access timing breakdown for each request:
+
+```ruby
+response = client.get("/api/data")
+metrics = response.metrics
+
+metrics.total_time       # => 0.234 (seconds)
+metrics.first_byte_time  # => 0.180
+metrics.to_h             # => { dns_time: 0.0, connect_time: 0.0, ... }
+```
+
 ### All HTTP methods
 
 ```ruby
@@ -257,6 +344,10 @@ client.head("/resource")
 | `retry_delay` | Numeric | `1`     | Seconds between retries              |
 | `retry_backoff` | Symbol | `:fixed` | Backoff strategy — `:fixed` or `:exponential` |
 | `retry_on_status` | Array | `nil` | HTTP status codes to retry on (e.g., `[429, 503]`) |
+| `cookies` | Boolean | `false` | Enable cookie jar for automatic cookie handling |
+| `proxy` | String | `nil` | Proxy URL (also reads `HTTP_PROXY`/`HTTPS_PROXY` env vars) |
+| `follow_redirects` | Boolean | `true` | Follow 3xx redirects automatically |
+| `max_redirects` | Integer | `5` | Maximum number of redirects to follow |
 
 ### Methods
 
@@ -269,6 +360,7 @@ client.head("/resource")
 | `delete(path, **opts)` | Send DELETE request |
 | `head(path, **opts)` | Send HEAD request |
 | `request_count` | Total number of requests made by this client |
+| `cookie_jar` | Returns the `CookieJar` instance (nil if cookies disabled) |
 | `bearer_token(token)` | Set Bearer token auth for all subsequent requests |
 | `basic_auth(user, pass)` | Set Basic auth for all subsequent requests |
 
@@ -298,6 +390,9 @@ client.head("/resource")
 | `ok?`     | Boolean | `true` if status is 200-299     |
 | `json`    | Hash    | Parsed JSON body                |
 | `streaming?` | Boolean | `true` if response was streamed |
+| `metrics` | Metrics | Request timing breakdown (total_time, first_byte_time, etc.) |
+| `redirects` | Array | Redirect chain URLs (empty if no redirects) |
+| `redirected?` | Boolean | `true` if response was redirected |
 
 ### Errors
 
@@ -316,6 +411,13 @@ bundle install
 bundle exec rspec
 bundle exec rubocop
 ```
+
+## Support
+
+If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+
+[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
+[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
 
 ## License
 
