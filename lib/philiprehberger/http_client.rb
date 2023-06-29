@@ -8,6 +8,8 @@ require_relative 'http_client/retries'
 require_relative 'http_client/body_encoder'
 require_relative 'http_client/cookie_jar'
 require_relative 'http_client/metrics'
+require_relative 'http_client/pool'
+require_relative 'http_client/cache'
 require_relative 'http_client/connection'
 require_relative 'http_client/client'
 

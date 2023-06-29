@@ -7,6 +7,18 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-29
+
+### Added
+- Thread-safe connection pooling for reusing Net::HTTP connections (`pool: true`, `pool_size: N`)
+- Automatic request ID tracking via `X-Request-ID` header with `SecureRandom.uuid` (persists across retries)
+- `Response#request_id` accessor and `request_id:` option to override generated IDs
+- In-memory response caching for GET requests with `Cache-Control` support (`cache: true`)
+- Conditional requests via `ETag` / `Last-Modified` headers (`If-None-Match` / `If-Modified-Since`)
+- `client.clear_cache!` to flush the response cache
+- `Pool` class with `checkout`/`checkin` interface and automatic idle connection expiry
+- `Cache` class with `lookup`/`store`/`clear!` interface
+
 ## [0.5.0] - 2026-03-27
 
 ### Added

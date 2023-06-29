@@ -5,17 +5,19 @@ require 'json'
 module Philiprehberger
   module HttpClient
     class Response
-      attr_reader :status, :body, :headers
+      attr_reader :status, :body, :headers, :request_id
 
       # @param status [Integer] HTTP status code
       # @param body [String, nil] Response body
       # @param headers [Hash] Response headers
       # @param streaming [Boolean] Whether the response was streamed
-      def initialize(status:, body:, headers: {}, streaming: false)
+      # @param request_id [String, nil] Request ID for tracking
+      def initialize(status:, body:, headers: {}, streaming: false, request_id: nil)
         @status = status
         @body = body
         @headers = headers
         @streaming = streaming
+        @request_id = request_id
       end
 
       # Returns true if the status code is in the 2xx range.
