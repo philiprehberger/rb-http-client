@@ -1750,6 +1750,88 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe 'on_request callback' do
+    it 'calls the callback with method, uri, status, and duration after a request' do
+      captured = nil
+      callback_client = described_class.new(
+        base_url: base_url,
+        on_request: ->(method, uri, status, duration) { captured = { method: method, uri: uri, status: status, duration: duration } }
+      )
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'ok')
+
+      callback_client.get('/data')
+
+      expect(captured).not_to be_nil
+      expect(captured[:method]).to eq('GET')
+      expect(captured[:uri].to_s).to include('api.example.com/data')
+      expect(captured[:status]).to eq(200)
+      expect(captured[:duration]).to be_a(Float)
+      expect(captured[:duration]).to be >= 0
+    end
+
+    it 'calls the callback for POST requests' do
+      captured = nil
+      callback_client = described_class.new(
+        base_url: base_url,
+        on_request: ->(method, _uri, status, _duration) { captured = { method: method, status: status } }
+      )
+
+      stub_request(:post, 'https://api.example.com/users')
+        .to_return(status: 201, body: '{"id":1}')
+
+      callback_client.post('/users', json: { name: 'Alice' })
+
+      expect(captured[:method]).to eq('POST')
+      expect(captured[:status]).to eq(201)
+    end
+
+    it 'does not raise when on_request is nil' do
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'ok')
+
+      expect { client.get('/data') }.not_to raise_error
+    end
+
+    it 'calls the callback for each request' do
+      calls = []
+      callback_client = described_class.new(
+        base_url: base_url,
+        on_request: ->(method, _uri, status, _duration) { calls << { method: method, status: status } }
+      )
+
+      stub_request(:get, 'https://api.example.com/a')
+        .to_return(status: 200, body: 'ok')
+      stub_request(:delete, 'https://api.example.com/b')
+        .to_return(status: 204, body: '')
+
+      callback_client.get('/a')
+      callback_client.delete('/b')
+
+      expect(calls.size).to eq(2)
+      expect(calls[0]).to eq({ method: 'GET', status: 200 })
+      expect(calls[1]).to eq({ method: 'DELETE', status: 204 })
+    end
+
+    it 'is called before response validation raises HttpError' do
+      captured_status = nil
+      callback_client = described_class.new(
+        base_url: base_url,
+        on_request: ->(_method, _uri, status, _duration) { captured_status = status }
+      )
+
+      stub_request(:get, 'https://api.example.com/fail')
+        .to_return(status: 500, body: 'error')
+
+      expect do
+        callback_client.get('/fail', expect: [200])
+      end.to raise_error(Philiprehberger::HttpClient::HttpError)
+
+      expect(captured_status).to eq(500)
+    end
+  end
+
   describe 'proxy configuration' do
     it 'accepts proxy option' do
       proxy_client = described_class.new(base_url: base_url, proxy: 'http://proxy:8080')

@@ -361,6 +361,22 @@ response = client.get("/data")
 client.clear_cache!
 ```
 
+### Request logging callback
+
+Add an `on_request` callback for observability — it receives the HTTP method, URI, response status, and duration (in seconds) after each request completes:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  on_request: ->(method, uri, status, duration) {
+    puts "#{method} #{uri} -> #{status} (#{duration.round(3)}s)"
+  }
+)
+
+client.get("/users")
+# Prints: GET https://api.example.com/users -> 200 (0.234s)
+```
+
 ### All HTTP methods
 
 ```ruby
@@ -395,6 +411,7 @@ client.head("/resource")
 | `pool` | Boolean | `false` | Enable connection pooling |
 | `pool_size` | Integer | `5` | Maximum connections per host:port |
 | `cache` | Boolean | `false` | Enable in-memory GET response caching |
+| `on_request` | Proc | `nil` | Callback invoked after each request with `(method, uri, status, duration)` |
 
 ### Methods
 

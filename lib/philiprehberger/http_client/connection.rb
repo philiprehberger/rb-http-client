@@ -79,6 +79,7 @@ module Philiprehberger
         cache_response(uri, response) if @cache && request.is_a?(Net::HTTP::Get)
         context[:response] = response
         run_interceptors(context)
+        notify_on_request(context[:request][:method], uri, response)
         validate_response!(response, expect) if expect
         response
       end
@@ -242,6 +243,13 @@ module Philiprehberger
 
       def run_interceptors(context)
         @interceptors.each { |interceptor| interceptor.call(context) }
+      end
+
+      def notify_on_request(method, uri, response)
+        return unless @on_request
+
+        duration = response.metrics&.total_time || 0.0
+        @on_request.call(method, uri, response.status, duration)
       end
     end
   end
