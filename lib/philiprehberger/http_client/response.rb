@@ -18,6 +18,8 @@ module Philiprehberger
         @headers = headers
         @streaming = streaming
         @request_id = request_id
+        @metrics = nil
+        @redirects = []
       end
 
       # Returns true if the status code is in the 2xx range.
@@ -50,9 +52,7 @@ module Philiprehberger
       # Returns the redirect chain (empty if no redirects occurred).
       #
       # @return [Array<String>]
-      def redirects
-        @redirects || []
-      end
+      attr_reader :redirects
 
       # Returns true if the response was redirected.
       #

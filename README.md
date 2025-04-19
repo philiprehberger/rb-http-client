@@ -299,6 +299,8 @@ metrics.first_byte_time  # => 0.180
 metrics.to_h             # => { dns_time: 0.0, connect_time: 0.0, ... }
 ```
 
+> **Note:** `dns_time`, `connect_time`, and `tls_time` are not available from Ruby's stdlib `Net::HTTP` and will always be `0.0`. Only `total_time` and `first_byte_time` are populated.
+
 ### Connection pooling
 
 Reuse TCP connections to the same host for better performance:
@@ -315,6 +317,23 @@ client = Philiprehberger::HttpClient.new(
 
 # Drain all pooled connections
 client.pool.drain
+```
+
+### Client lifecycle
+
+Use `Client.open` for automatic cleanup, or call `close` manually to drain the connection pool:
+
+```ruby
+# Block form — pool is drained automatically
+Philiprehberger::HttpClient.open(base_url: "https://api.example.com", pool: true) do |client|
+  client.get("/data")
+  client.post("/submit", json: { key: "value" })
+end
+
+# Manual form
+client = Philiprehberger::HttpClient.new(base_url: "https://api.example.com", pool: true)
+client.get("/data")
+client.close  # drains the connection pool
 ```
 
 ### Request ID tracking
@@ -428,6 +447,8 @@ client.head("/resource")
 | `bearer_token(token)` | Set Bearer token auth for all subsequent requests |
 | `basic_auth(user, pass)` | Set Basic auth for all subsequent requests |
 | `clear_cache!` | Flush the response cache |
+| `close` | Drain the connection pool (no-op if pooling disabled) |
+| `self.open(**opts, &block)` | Block form — creates client, yields it, ensures `close` is called |
 | `pool` | Returns the `Pool` instance (nil if pooling disabled) |
 | `cache` | Returns the `Cache` instance (nil if caching disabled) |
 

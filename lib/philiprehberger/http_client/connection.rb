@@ -185,6 +185,15 @@ module Philiprehberger
         @follow_redirects && REDIRECT_CODES.include?(response.status)
       end
 
+      METHOD_CLASS_MAP = {
+        'GET' => Net::HTTP::Get,
+        'POST' => Net::HTTP::Post,
+        'PUT' => Net::HTTP::Put,
+        'PATCH' => Net::HTTP::Patch,
+        'DELETE' => Net::HTTP::Delete,
+        'HEAD' => Net::HTTP::Head
+      }.freeze
+
       def follow_redirect_chain(response, original_request, **timeout_opts)
         redirect_count = 0
         redirects = []
@@ -199,7 +208,12 @@ module Philiprehberger
           redirect_uri = URI.parse(location)
           redirect_uri = URI.join("#{original_request.uri.scheme}://#{original_request.uri.host}", location) unless redirect_uri.host
 
-          redirect_request = Net::HTTP::Get.new(redirect_uri)
+          redirect_class = if [307, 308].include?(current_response.status)
+                             METHOD_CLASS_MAP.fetch(original_request.method, Net::HTTP::Get)
+                           else
+                             Net::HTTP::Get
+                           end
+          redirect_request = redirect_class.new(redirect_uri)
           @default_headers.each { |key, value| redirect_request[key] = value }
           redirect_request['accept-encoding'] ||= 'gzip, deflate'
           apply_cookie_header(redirect_request)
