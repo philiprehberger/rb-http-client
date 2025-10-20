@@ -489,6 +489,7 @@ client.head("/resource")
 | Class | Description |
 |-------|-------------|
 | `Error` | Base error class (inherits `StandardError`) |
+| `ConfigurationError` | Invalid client option (negative timeout, bad retry config, etc.) |
 | `TimeoutError` | Connection or read timeout |
 | `NetworkError` | Connection refused, reset, unreachable |
 | `HttpError` | Response status mismatch (has `.response` accessor) |

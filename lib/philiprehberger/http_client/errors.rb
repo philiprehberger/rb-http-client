@@ -5,6 +5,9 @@ module Philiprehberger
     # Base error class for all HTTP client errors.
     class Error < StandardError; end
 
+    # Raised when client configuration is invalid (e.g. negative timeout).
+    class ConfigurationError < Error; end
+
     # Raised when a connection or read timeout occurs.
     class TimeoutError < Error; end
 
