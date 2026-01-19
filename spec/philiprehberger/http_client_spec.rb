@@ -195,6 +195,152 @@ RSpec.describe Philiprehberger::HttpClient do
       expect(response.ok?).to be(true)
       expect(response.headers['x-request-id']).to eq('abc123')
     end
+
+    it 'returns a Response with empty body for HEAD' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(status: 200, body: '', headers: { 'content-length' => '1024' })
+
+      response = client.head('/resource')
+
+      expect(response.body).to eq('')
+      expect(response.headers['content-length']).to eq('1024')
+    end
+
+    it 'populates response headers from HEAD request' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(
+          status: 200,
+          body: '',
+          headers: {
+            'content-type' => 'application/json',
+            'etag' => 'W/"abc123"',
+            'last-modified' => 'Mon, 01 Jan 2024 00:00:00 GMT'
+          }
+        )
+
+      response = client.head('/resource')
+
+      expect(response.headers['content-type']).to eq('application/json')
+      expect(response.headers['etag']).to eq('W/"abc123"')
+      expect(response.headers['last-modified']).to eq('Mon, 01 Jan 2024 00:00:00 GMT')
+    end
+
+    it 'accepts per-request headers on HEAD' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .with(headers: { 'x-custom' => 'value' })
+        .to_return(status: 200, body: '')
+
+      response = client.head('/resource', headers: { 'x-custom' => 'value' })
+
+      expect(response.status).to eq(200)
+    end
+
+    it 'increments request_count on HEAD' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(status: 200, body: '')
+
+      client.head('/resource')
+
+      expect(client.request_count).to eq(1)
+    end
+
+    it 'goes through the interceptor pipeline like GET' do
+      calls = []
+      client.use do |context|
+        calls << (context[:response] ? :after : :before)
+      end
+
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(status: 200, body: '')
+
+      client.head('/resource')
+
+      expect(calls).to eq(%i[before after])
+    end
+
+    it 'retries HEAD requests on network errors' do
+      retry_client = described_class.new(base_url: base_url, retries: 2, retry_delay: 0)
+
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_raise(Errno::ECONNREFUSED)
+        .then
+        .to_return(status: 200, body: '')
+
+      response = retry_client.head('/resource')
+
+      expect(response.status).to eq(200)
+    end
+
+    it 'wraps network errors on HEAD as NetworkError' do
+      stub_request(:head, 'https://api.example.com/down')
+        .to_raise(Errno::ECONNREFUSED)
+
+      expect { client.head('/down') }.to raise_error(Philiprehberger::HttpClient::NetworkError)
+    end
+
+    it 'wraps timeout errors on HEAD as TimeoutError' do
+      stub_request(:head, 'https://api.example.com/slow')
+        .to_raise(Net::ReadTimeout)
+
+      expect { client.head('/slow') }.to raise_error(Philiprehberger::HttpClient::TimeoutError)
+    end
+
+    it 'supports per-request timeout on HEAD' do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return('200')
+      allow(raw_response).to receive(:body).and_return('')
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      client.head('/resource', timeout: 7)
+
+      expect(http_double).to have_received(:read_timeout=).with(7)
+    end
+
+    it 'assigns a request_id to HEAD responses' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(status: 200, body: '')
+
+      response = client.head('/resource')
+
+      expect(response.request_id).to be_a(String)
+      expect(response.request_id).not_to be_empty
+    end
+
+    it 'accepts a custom request_id on HEAD' do
+      stub_request(:head, 'https://api.example.com/resource')
+        .to_return(status: 200, body: '')
+
+      response = client.head('/resource', request_id: 'head-req-42')
+
+      expect(response.request_id).to eq('head-req-42')
+    end
+
+    it 'handles nil body from server (HEAD semantics) as empty string' do
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+      allow(http_double).to receive(:write_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return('200')
+      allow(raw_response).to receive(:body).and_return(nil)
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      response = client.head('/resource')
+
+      expect(response.body).to eq('')
+    end
   end
 
   describe 'per-request timeout' do
