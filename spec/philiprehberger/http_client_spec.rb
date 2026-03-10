@@ -178,11 +178,7 @@ RSpec.describe Philiprehberger::HttpClient do
       calls = []
 
       client.use do |context|
-        if context[:response]
-          calls << :after
-        else
-          calls << :before
-        end
+        calls << (context[:response] ? :after : :before)
       end
 
       stub_request(:get, "https://api.example.com/test")

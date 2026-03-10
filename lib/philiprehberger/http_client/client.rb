@@ -131,37 +131,50 @@ module Philiprehberger
         context = { request: { uri: uri, method: request.method, headers: request.to_hash } }
         run_interceptors(context)
 
+        response = perform_with_retries(uri, request)
+        context[:response] = response
+        run_interceptors(context)
+
+        response
+      end
+
+      def perform_with_retries(uri, request)
         attempts = 0
         begin
-          http = Net::HTTP.new(uri.host, uri.port)
-          http.use_ssl = uri.scheme == "https"
-          http.open_timeout = @timeout
-          http.read_timeout = @timeout
-
-          raw = http.request(request)
-
-          response_headers = {}
-          raw.each_header { |k, v| response_headers[k] = v }
-
-          response = Response.new(
-            status: raw.code.to_i,
-            body: raw.body || "",
-            headers: response_headers
-          )
-
-          context[:response] = response
-          run_interceptors(context)
-
-          response
+          perform_request(uri, request)
         rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
                Net::OpenTimeout, Net::ReadTimeout, SocketError => e
           attempts += 1
-          if attempts <= @retries
-            sleep(@retry_delay)
-            retry
-          end
-          raise e
+          raise e unless attempts <= @retries
+
+          sleep(@retry_delay)
+          retry
         end
+      end
+
+      def perform_request(uri, request)
+        http = build_http(uri)
+        raw = http.request(request)
+        build_response(raw)
+      end
+
+      def build_http(uri)
+        http = Net::HTTP.new(uri.host, uri.port)
+        http.use_ssl = uri.scheme == "https"
+        http.open_timeout = @timeout
+        http.read_timeout = @timeout
+        http
+      end
+
+      def build_response(raw)
+        response_headers = {}
+        raw.each_header { |k, v| response_headers[k] = v }
+
+        Response.new(
+          status: raw.code.to_i,
+          body: raw.body || "",
+          headers: response_headers
+        )
       end
 
       def run_interceptors(context)
