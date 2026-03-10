@@ -100,7 +100,6 @@ module Philiprehberger
         request = Net::HTTP::Delete.new(uri)
         execute(uri, request, headers)
       end
-
     end
   end
 end

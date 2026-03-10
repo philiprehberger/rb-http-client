@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary = "Lightweight HTTP client wrapper with retries and interceptors"
   spec.description = "A zero-dependency HTTP client built on Ruby's net/http with automatic retries, " \
-                      "request/response interceptors, and a clean API for JSON services."
+                     "request/response interceptors, and a clean API for JSON services."
   spec.homepage = "https://github.com/philiprehberger/rb-http-client"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1"
