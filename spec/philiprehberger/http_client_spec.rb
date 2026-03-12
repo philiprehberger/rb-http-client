@@ -173,6 +173,84 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe "HEAD requests" do
+    it "performs a HEAD request and returns a response" do
+      stub_request(:head, "https://api.example.com/health")
+        .to_return(status: 200, body: "", headers: { "x-request-id" => "abc123" })
+
+      response = client.head("/health")
+
+      expect(response.status).to eq(200)
+      expect(response.ok?).to be(true)
+      expect(response.headers["x-request-id"]).to eq("abc123")
+    end
+  end
+
+  describe "per-request timeout" do
+    it "uses the per-request timeout when provided" do
+      stub_request(:get, "https://api.example.com/slow")
+        .to_return(status: 200, body: "ok")
+
+      http_double = instance_double(Net::HTTP)
+      allow(Net::HTTP).to receive(:new).and_return(http_double)
+      allow(http_double).to receive(:use_ssl=)
+      allow(http_double).to receive(:open_timeout=)
+      allow(http_double).to receive(:read_timeout=)
+
+      raw_response = Net::HTTPResponse.allocate
+      allow(raw_response).to receive(:code).and_return("200")
+      allow(raw_response).to receive(:body).and_return("ok")
+      allow(raw_response).to receive(:each_header)
+      allow(http_double).to receive(:request).and_return(raw_response)
+
+      client.get("/slow", timeout: 5)
+
+      expect(http_double).to have_received(:open_timeout=).with(5)
+      expect(http_double).to have_received(:read_timeout=).with(5)
+    end
+  end
+
+  describe "exponential backoff" do
+    it "uses exponential backoff delays when retry_backoff is :exponential" do
+      client_exp = described_class.new(
+        base_url: base_url, retries: 3, retry_delay: 1, retry_backoff: :exponential
+      )
+
+      stub_request(:get, "https://api.example.com/flaky")
+        .to_raise(Errno::ECONNREFUSED)
+        .then.to_raise(Errno::ECONNREFUSED)
+        .then.to_raise(Errno::ECONNREFUSED)
+        .then.to_return(status: 200, body: "ok")
+
+      allow(client_exp).to receive(:sleep)
+
+      response = client_exp.get("/flaky")
+
+      expect(response.status).to eq(200)
+      expect(client_exp).to have_received(:sleep).with(2).ordered
+      expect(client_exp).to have_received(:sleep).with(4).ordered
+      expect(client_exp).to have_received(:sleep).with(8).ordered
+    end
+  end
+
+  describe "request_count" do
+    it "starts at zero" do
+      expect(client.request_count).to eq(0)
+    end
+
+    it "increments with each request" do
+      stub_request(:get, "https://api.example.com/one")
+        .to_return(status: 200, body: "ok")
+      stub_request(:post, "https://api.example.com/two")
+        .to_return(status: 201, body: "created")
+
+      client.get("/one")
+      client.post("/two", body: "data")
+
+      expect(client.request_count).to eq(2)
+    end
+  end
+
   describe "interceptors" do
     it "calls interceptor before and after request" do
       calls = []
