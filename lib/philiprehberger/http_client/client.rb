@@ -15,13 +15,13 @@ module Philiprehberger
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
-      def initialize(base_url:, headers: {}, timeout: 30, retries: 0, retry_delay: 1, retry_backoff: :fixed)
+      def initialize(base_url:, headers: {}, timeout: 30, **retry_options)
         @base_url = base_url.chomp("/")
         @default_headers = headers
         @timeout = timeout
-        @retries = retries
-        @retry_delay = retry_delay
-        @retry_backoff = retry_backoff
+        @retries = retry_options.fetch(:retries, 0)
+        @retry_delay = retry_options.fetch(:retry_delay, 1)
+        @retry_backoff = retry_options.fetch(:retry_backoff, :fixed)
         @interceptors = []
         @request_count = 0
       end
