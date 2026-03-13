@@ -80,11 +80,8 @@ module Philiprehberger
       # @param form [Hash, nil] Form-urlencoded body (sets Content-Type automatically)
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def post(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
-        uri = build_uri(path)
-        request = Net::HTTP::Post.new(uri)
-        set_body(request, body, json, form, headers)
-        execute(uri, request, headers, timeout: timeout)
+      def post(path, **opts)
+        request_with_body(Net::HTTP::Post, path, **opts)
       end
 
       # Perform a PUT request.
@@ -95,11 +92,8 @@ module Philiprehberger
       # @param form [Hash, nil] Form-urlencoded body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def put(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
-        uri = build_uri(path)
-        request = Net::HTTP::Put.new(uri)
-        set_body(request, body, json, form, headers)
-        execute(uri, request, headers, timeout: timeout)
+      def put(path, **opts)
+        request_with_body(Net::HTTP::Put, path, **opts)
       end
 
       # Perform a PATCH request.
@@ -110,11 +104,8 @@ module Philiprehberger
       # @param form [Hash, nil] Form-urlencoded body
       # @param headers [Hash] Additional headers
       # @return [Response]
-      def patch(path, body: nil, json: nil, form: nil, headers: {}, timeout: nil)
-        uri = build_uri(path)
-        request = Net::HTTP::Patch.new(uri)
-        set_body(request, body, json, form, headers)
-        execute(uri, request, headers, timeout: timeout)
+      def patch(path, **opts)
+        request_with_body(Net::HTTP::Patch, path, **opts)
       end
 
       # Perform a DELETE request.

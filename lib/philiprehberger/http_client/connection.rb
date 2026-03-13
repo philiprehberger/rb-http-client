@@ -7,6 +7,14 @@ module Philiprehberger
     module Connection
       private
 
+      def request_with_body(http_class, path, **opts)
+        headers = opts.fetch(:headers, {})
+        uri = build_uri(path)
+        request = http_class.new(uri)
+        set_body(request, opts[:body], opts[:json], opts[:form], headers)
+        execute(uri, request, headers, timeout: opts[:timeout])
+      end
+
       def build_uri(path, params = {})
         url = "#{@base_url}/#{path.sub(%r{^/}, '')}"
         uri = URI.parse(url)
@@ -48,25 +56,29 @@ module Philiprehberger
         response
       end
 
+      RETRYABLE_ERRORS = [
+        Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
+        Net::OpenTimeout, Net::ReadTimeout, SocketError
+      ].freeze
+
       def perform_with_retries(uri, request, timeout: nil)
         attempts = 0
         loop do
-          begin
-            response = perform_request(uri, request, timeout: timeout)
-            if @retry_on_status&.include?(response.status) && attempts < @retries
-              attempts += 1
-              sleep(retry_delay_for(attempts))
-              next
-            end
-            return response
-          rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
-                 Net::OpenTimeout, Net::ReadTimeout, SocketError => e
-            attempts += 1
-            raise e unless attempts <= @retries
-
-            sleep(retry_delay_for(attempts))
-          end
+          response = perform_request(uri, request, timeout: timeout)
+          return response unless retry_on_status?(response.status, attempts)
+          wait_and_retry(attempts += 1)
+        rescue *RETRYABLE_ERRORS => e
+          raise e unless (attempts += 1) <= @retries
+          sleep(retry_delay_for(attempts))
         end
+      end
+
+      def retry_on_status?(status, attempts)
+        @retry_on_status&.include?(status) && attempts < @retries
+      end
+
+      def wait_and_retry(attempt)
+        sleep(retry_delay_for(attempt))
       end
 
       def retry_delay_for(attempt)
