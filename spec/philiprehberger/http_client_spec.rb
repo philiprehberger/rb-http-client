@@ -14,7 +14,7 @@ RSpec.describe Philiprehberger::HttpClient do
 
   describe "VERSION" do
     it "has a version number" do
-      expect(Philiprehberger::HttpClient::VERSION).to eq("0.1.0")
+      expect(Philiprehberger::HttpClient::VERSION).to eq("0.2.0")
     end
   end
 
