@@ -5,6 +5,11 @@ module Philiprehberger
     # Internal helpers for building URIs, HTTP connections, executing requests,
     # and constructing Response objects. Mixed into Client to keep it concise.
     module Connection
+      RETRYABLE_ERRORS = [
+        Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
+        Net::OpenTimeout, Net::ReadTimeout, SocketError
+      ].freeze
+
       private
 
       def request_with_body(http_class, path, **opts)
@@ -56,19 +61,16 @@ module Philiprehberger
         response
       end
 
-      RETRYABLE_ERRORS = [
-        Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
-        Net::OpenTimeout, Net::ReadTimeout, SocketError
-      ].freeze
-
       def perform_with_retries(uri, request, timeout: nil)
         attempts = 0
         loop do
           response = perform_request(uri, request, timeout: timeout)
           return response unless retry_on_status?(response.status, attempts)
+
           wait_and_retry(attempts += 1)
         rescue *RETRYABLE_ERRORS => e
           raise e unless (attempts += 1) <= @retries
+
           sleep(retry_delay_for(attempts))
         end
       end
