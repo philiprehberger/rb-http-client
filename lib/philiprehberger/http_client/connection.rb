@@ -17,10 +17,13 @@ module Philiprehberger
         uri
       end
 
-      def set_body(request, body, json_body, headers)
+      def set_body(request, body, json_body, form_body, headers)
         if json_body
           request.body = JSON.generate(json_body)
           headers["content-type"] ||= "application/json"
+        elsif form_body
+          request.body = URI.encode_www_form(form_body)
+          headers["content-type"] ||= "application/x-www-form-urlencoded"
         elsif body
           request.body = body
         end
@@ -47,20 +50,27 @@ module Philiprehberger
 
       def perform_with_retries(uri, request, timeout: nil)
         attempts = 0
-        begin
-          perform_request(uri, request, timeout: timeout)
-        rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
-               Net::OpenTimeout, Net::ReadTimeout, SocketError => e
-          attempts += 1
-          raise e unless attempts <= @retries
+        loop do
+          begin
+            response = perform_request(uri, request, timeout: timeout)
+            if @retry_on_status&.include?(response.status) && attempts < @retries
+              attempts += 1
+              sleep(retry_delay_for(attempts))
+              next
+            end
+            return response
+          rescue Errno::ECONNREFUSED, Errno::ECONNRESET, Errno::ETIMEDOUT,
+                 Net::OpenTimeout, Net::ReadTimeout, SocketError => e
+            attempts += 1
+            raise e unless attempts <= @retries
 
-          sleep(retry_delay_for(attempts))
-          retry
+            sleep(retry_delay_for(attempts))
+          end
         end
       end
 
       def retry_delay_for(attempt)
-        @retry_backoff == :exponential ? @retry_delay * (2**attempt) : @retry_delay
+        @retry_backoff == :exponential ? @retry_delay * (2**(attempt - 1)) : @retry_delay
       end
 
       def perform_request(uri, request, timeout: nil)

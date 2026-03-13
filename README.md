@@ -76,6 +76,25 @@ client.get("/health")
 #   Response: 200
 ```
 
+### Form data
+
+```ruby
+response = client.post("/login", form: { username: "alice", password: "secret" })
+# Content-Type: application/x-www-form-urlencoded is set automatically
+```
+
+### Authentication helpers
+
+```ruby
+# Bearer token
+client.bearer_token("your-api-token")
+client.get("/protected")  # Authorization: Bearer your-api-token
+
+# Basic auth
+client.basic_auth("username", "password")
+client.get("/protected")  # Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=
+```
+
 ### Retries
 
 Automatically retry on network errors (connection refused, timeouts, etc.):
@@ -90,6 +109,19 @@ client = Philiprehberger::HttpClient.new(
 response = client.get("/unstable-endpoint")
 ```
 
+You can also retry on specific HTTP status codes:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  retries: 3,
+  retry_delay: 1,
+  retry_on_status: [429, 503]
+)
+```
+
+> **Note:** Network error retries and HTTP status retries both count toward the same retry limit.
+
 ### Exponential backoff
 
 ```ruby
@@ -99,6 +131,7 @@ client = Philiprehberger::HttpClient.new(
   retry_delay: 1,
   retry_backoff: :exponential
 )
+# Delay sequence: 1s, 2s, 4s
 ```
 
 ### Per-request timeout
@@ -129,7 +162,8 @@ client.head("/resource")
 | `timeout`     | Integer | `30`    | Read/open timeout in seconds         |
 | `retries`     | Integer | `0`     | Retry attempts on network errors     |
 | `retry_delay` | Numeric | `1`     | Seconds between retries              |
-| `retry_backoff` | String/Symbol | `:fixed` | Backoff strategy — `:fixed` or `:exponential` |
+| `retry_backoff` | Symbol | `:fixed` | Backoff strategy — `:fixed` or `:exponential` |
+| `retry_on_status` | Array | `nil` | HTTP status codes to retry on (e.g., `[429, 503]`) |
 
 ### Methods
 
@@ -142,6 +176,8 @@ client.head("/resource")
 | `delete(path, **opts)` | Send DELETE request |
 | `head(path, **opts)` | Send HEAD request |
 | `request_count` | Total number of requests made by this client |
+| `bearer_token(token)` | Set Bearer token auth for all subsequent requests |
+| `basic_auth(user, pass)` | Set Basic auth for all subsequent requests |
 
 ### `Response`
 
