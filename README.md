@@ -2,8 +2,13 @@
 
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://badge.fury.io/rb/philiprehberger-http_client)
 [![CI](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
 
 Lightweight HTTP client wrapper with retries and interceptors. Zero dependencies — built on Ruby's stdlib `net/http`.
+
+## Requirements
+
+- Ruby >= 3.1
 
 ## Installation
 
@@ -188,6 +193,15 @@ client.head("/resource")
 | `headers` | Hash    | Response headers                |
 | `ok?`     | Boolean | `true` if status is 200-299     |
 | `json`    | Hash    | Parsed JSON body                |
+
+
+## Development
+
+```bash
+bundle install
+bundle exec rspec
+bundle exec rubocop
+```
 
 ## License
 
