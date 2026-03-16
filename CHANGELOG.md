@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.3
+
+- Fix CI: version test and rubocop compliance
+
 ## 0.3.2
 
 - Add License badge to README
