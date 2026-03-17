@@ -12,14 +12,21 @@ module Philiprehberger
 
       # @param base_url [String] Base URL for all requests
       # @param headers [Hash] Default headers applied to every request
-      # @param timeout [Integer] Read/open timeout in seconds
+      # @param timeout [Integer] General read/open timeout in seconds
+      # @param open_timeout [Integer, nil] TCP connection timeout (overrides timeout)
+      # @param read_timeout [Integer, nil] Response read timeout (overrides timeout)
+      # @param write_timeout [Integer, nil] Request write timeout (overrides timeout)
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
-      def initialize(base_url:, headers: {}, timeout: 30, **retry_options)
+      def initialize(base_url:, headers: {}, timeout: 30, open_timeout: nil, read_timeout: nil,
+                     write_timeout: nil, **retry_options)
         @base_url = base_url.chomp("/")
         @default_headers = headers
         @timeout = timeout
+        @open_timeout = open_timeout
+        @read_timeout = read_timeout
+        @write_timeout = write_timeout
         @retries = retry_options.fetch(:retries, 0)
         @retry_delay = retry_options.fetch(:retry_delay, 1)
         @retry_backoff = retry_options.fetch(:retry_backoff, :fixed)
@@ -52,11 +59,19 @@ module Philiprehberger
       # @param params [Hash] Query parameters
       # @param headers [Hash] Additional headers for this request
       # @param timeout [Integer, nil] Optional per-request timeout override
+      # @param open_timeout [Integer, nil] Optional per-request open timeout
+      # @param read_timeout [Integer, nil] Optional per-request read timeout
+      # @param write_timeout [Integer, nil] Optional per-request write timeout
+      # @param expect [Array<Integer>, nil] Expected status codes (raises HttpError otherwise)
+      # @yield [String] response body chunks when streaming
       # @return [Response]
-      def get(path, params: {}, headers: {}, timeout: nil)
+      def get(path, params: {}, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
+              write_timeout: nil, expect: nil, &block)
         uri = build_uri(path, params)
         request = Net::HTTP::Get.new(uri)
-        execute(uri, request, headers, timeout: timeout)
+        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
+                                       read_timeout: read_timeout, write_timeout: write_timeout,
+                                       expect: expect, &block)
       end
 
       # Perform a HEAD request.
@@ -65,11 +80,18 @@ module Philiprehberger
       # @param params [Hash] Query parameters
       # @param headers [Hash] Additional headers for this request
       # @param timeout [Integer, nil] Optional per-request timeout override
+      # @param open_timeout [Integer, nil] Optional per-request open timeout
+      # @param read_timeout [Integer, nil] Optional per-request read timeout
+      # @param write_timeout [Integer, nil] Optional per-request write timeout
+      # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def head(path, params: {}, headers: {}, timeout: nil)
+      def head(path, params: {}, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
+               write_timeout: nil, expect: nil)
         uri = build_uri(path, params)
         request = Net::HTTP::Head.new(uri)
-        execute(uri, request, headers, timeout: timeout)
+        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
+                                       read_timeout: read_timeout, write_timeout: write_timeout,
+                                       expect: expect)
       end
 
       # Perform a POST request.
@@ -78,10 +100,12 @@ module Philiprehberger
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body (sets Content-Type automatically)
       # @param form [Hash, nil] Form-urlencoded body (sets Content-Type automatically)
+      # @param multipart [Hash, nil] Multipart form data (sets Content-Type automatically)
       # @param headers [Hash] Additional headers
+      # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def post(path, **opts)
-        request_with_body(Net::HTTP::Post, path, **opts)
+      def post(path, **opts, &block)
+        request_with_body(Net::HTTP::Post, path, **opts, &block)
       end
 
       # Perform a PUT request.
@@ -90,10 +114,12 @@ module Philiprehberger
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body
       # @param form [Hash, nil] Form-urlencoded body
+      # @param multipart [Hash, nil] Multipart form data
       # @param headers [Hash] Additional headers
+      # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def put(path, **opts)
-        request_with_body(Net::HTTP::Put, path, **opts)
+      def put(path, **opts, &block)
+        request_with_body(Net::HTTP::Put, path, **opts, &block)
       end
 
       # Perform a PATCH request.
@@ -102,21 +128,31 @@ module Philiprehberger
       # @param body [String, nil] Raw body string
       # @param json [Hash, Array, nil] JSON-serializable body
       # @param form [Hash, nil] Form-urlencoded body
+      # @param multipart [Hash, nil] Multipart form data
       # @param headers [Hash] Additional headers
+      # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def patch(path, **opts)
-        request_with_body(Net::HTTP::Patch, path, **opts)
+      def patch(path, **opts, &block)
+        request_with_body(Net::HTTP::Patch, path, **opts, &block)
       end
 
       # Perform a DELETE request.
       #
       # @param path [String] Request path
       # @param headers [Hash] Additional headers
+      # @param timeout [Integer, nil] Optional per-request timeout override
+      # @param open_timeout [Integer, nil] Optional per-request open timeout
+      # @param read_timeout [Integer, nil] Optional per-request read timeout
+      # @param write_timeout [Integer, nil] Optional per-request write timeout
+      # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def delete(path, headers: {}, timeout: nil)
+      def delete(path, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
+                 write_timeout: nil, expect: nil)
         uri = build_uri(path)
         request = Net::HTTP::Delete.new(uri)
-        execute(uri, request, headers, timeout: timeout)
+        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
+                                       read_timeout: read_timeout, write_timeout: write_timeout,
+                                       expect: expect)
       end
 
       # Set a Bearer token for all subsequent requests.
