@@ -52,10 +52,10 @@ module Philiprehberger
         run_execute_pipeline(uri, request, expect, **timeout_opts, &block)
       end
 
-      def run_execute_pipeline(uri, request, expect, **timeout_opts, &block)
+      def run_execute_pipeline(uri, request, expect, **timeout_opts, &)
         context = { request: { uri: uri, method: request.method, headers: request.to_hash } }
         run_interceptors(context)
-        response = perform_with_retries(uri, request, **timeout_opts, &block)
+        response = perform_with_retries(uri, request, **timeout_opts, &)
         context[:response] = response
         run_interceptors(context)
         validate_response!(response, expect) if expect
@@ -94,10 +94,14 @@ module Philiprehberger
       end
 
       def apply_timeouts(http, timeout_opts)
-        effective_timeout = timeout_opts[:timeout] || @timeout
-        http.open_timeout = timeout_opts[:open_timeout] || @open_timeout || effective_timeout
-        http.read_timeout = timeout_opts[:read_timeout] || @read_timeout || effective_timeout
-        http.write_timeout = timeout_opts[:write_timeout] || @write_timeout || effective_timeout
+        effective = timeout_opts[:timeout] || @timeout
+        http.open_timeout = resolve_timeout(:open_timeout, timeout_opts, effective)
+        http.read_timeout = resolve_timeout(:read_timeout, timeout_opts, effective)
+        http.write_timeout = resolve_timeout(:write_timeout, timeout_opts, effective)
+      end
+
+      def resolve_timeout(key, timeout_opts, fallback)
+        timeout_opts[key] || instance_variable_get(:"@#{key}") || fallback
       end
 
       def build_response(raw)
