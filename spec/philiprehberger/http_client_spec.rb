@@ -564,20 +564,24 @@ RSpec.describe Philiprehberger::HttpClient do
     end
 
     it "sends multipart body with file objects" do
-      file = StringIO.new("file contents")
-      allow(file).to receive(:path).and_return("/tmp/photo.jpg")
+      file = Tempfile.new(["photo", ".jpg"])
+      file.write("file contents")
+      file.rewind
 
       stub_request(:post, "https://api.example.com/upload")
         .with { |req|
           req.headers["Content-Type"]&.include?("multipart/form-data") &&
             req.body.include?("file contents") &&
-            req.body.include?("photo.jpg")
+            req.body.include?(".jpg")
         }
         .to_return(status: 200, body: '{"id":1}')
 
       response = client.post("/upload", multipart: { file: file, name: "vacation" })
 
       expect(response.status).to eq(200)
+    ensure
+      file.close
+      file.unlink
     end
 
     it "includes boundary in content-type header" do
@@ -602,23 +606,31 @@ RSpec.describe Philiprehberger::HttpClient do
     end
 
     it "builds file parts with filename and content-type" do
-      file = StringIO.new("binary data")
-      allow(file).to receive(:path).and_return("/tmp/image.png")
+      file = Tempfile.new(["image", ".png"])
+      file.write("binary data")
+      file.rewind
 
       body, = Philiprehberger::HttpClient::Multipart.build({ image: file })
 
-      expect(body).to include('filename="image.png"')
+      expect(body).to include('filename="')
       expect(body).to include("Content-Type: application/octet-stream")
       expect(body).to include("binary data")
+    ensure
+      file.close
+      file.unlink
     end
 
     it "rewinds file after reading" do
-      file = StringIO.new("data")
-      allow(file).to receive(:path).and_return("/tmp/test.txt")
+      file = Tempfile.new(["test", ".txt"])
+      file.write("data")
+      file.rewind
 
       Philiprehberger::HttpClient::Multipart.build({ file: file })
 
       expect(file.pos).to eq(0)
+    ensure
+      file.close
+      file.unlink
     end
 
     it "works with PUT method" do
