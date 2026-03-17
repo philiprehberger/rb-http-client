@@ -19,18 +19,12 @@ module Philiprehberger
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
-      def initialize(base_url:, headers: {}, timeout: 30, open_timeout: nil, read_timeout: nil,
-                     write_timeout: nil, **retry_options)
+      def initialize(base_url:, headers: {}, timeout: 30, **opts)
         @base_url = base_url.chomp("/")
         @default_headers = headers
         @timeout = timeout
-        @open_timeout = open_timeout
-        @read_timeout = read_timeout
-        @write_timeout = write_timeout
-        @retries = retry_options.fetch(:retries, 0)
-        @retry_delay = retry_options.fetch(:retry_delay, 1)
-        @retry_backoff = retry_options.fetch(:retry_backoff, :fixed)
-        @retry_on_status = retry_options[:retry_on_status]
+        assign_timeout_opts(opts)
+        assign_retry_opts(opts)
         @interceptors = []
         @request_count = 0
       end
@@ -65,13 +59,10 @@ module Philiprehberger
       # @param expect [Array<Integer>, nil] Expected status codes (raises HttpError otherwise)
       # @yield [String] response body chunks when streaming
       # @return [Response]
-      def get(path, params: {}, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
-              write_timeout: nil, expect: nil, &block)
+      def get(path, params: {}, headers: {}, expect: nil, **timeout_opts, &block)
         uri = build_uri(path, params)
         request = Net::HTTP::Get.new(uri)
-        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
-                                       read_timeout: read_timeout, write_timeout: write_timeout,
-                                       expect: expect, &block)
+        execute(uri, request, headers, expect: expect, **timeout_opts, &block)
       end
 
       # Perform a HEAD request.
@@ -85,13 +76,10 @@ module Philiprehberger
       # @param write_timeout [Integer, nil] Optional per-request write timeout
       # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def head(path, params: {}, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
-               write_timeout: nil, expect: nil)
+      def head(path, params: {}, headers: {}, expect: nil, **timeout_opts)
         uri = build_uri(path, params)
         request = Net::HTTP::Head.new(uri)
-        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
-                                       read_timeout: read_timeout, write_timeout: write_timeout,
-                                       expect: expect)
+        execute(uri, request, headers, expect: expect, **timeout_opts)
       end
 
       # Perform a POST request.
@@ -104,8 +92,8 @@ module Philiprehberger
       # @param headers [Hash] Additional headers
       # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def post(path, **opts, &block)
-        request_with_body(Net::HTTP::Post, path, **opts, &block)
+      def post(path, ...)
+        request_with_body(Net::HTTP::Post, path, ...)
       end
 
       # Perform a PUT request.
@@ -118,8 +106,8 @@ module Philiprehberger
       # @param headers [Hash] Additional headers
       # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def put(path, **opts, &block)
-        request_with_body(Net::HTTP::Put, path, **opts, &block)
+      def put(path, ...)
+        request_with_body(Net::HTTP::Put, path, ...)
       end
 
       # Perform a PATCH request.
@@ -132,8 +120,8 @@ module Philiprehberger
       # @param headers [Hash] Additional headers
       # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def patch(path, **opts, &block)
-        request_with_body(Net::HTTP::Patch, path, **opts, &block)
+      def patch(path, ...)
+        request_with_body(Net::HTTP::Patch, path, ...)
       end
 
       # Perform a DELETE request.
@@ -146,13 +134,10 @@ module Philiprehberger
       # @param write_timeout [Integer, nil] Optional per-request write timeout
       # @param expect [Array<Integer>, nil] Expected status codes
       # @return [Response]
-      def delete(path, headers: {}, timeout: nil, open_timeout: nil, read_timeout: nil,
-                 write_timeout: nil, expect: nil)
+      def delete(path, headers: {}, expect: nil, **timeout_opts)
         uri = build_uri(path)
         request = Net::HTTP::Delete.new(uri)
-        execute(uri, request, headers, timeout: timeout, open_timeout: open_timeout,
-                                       read_timeout: read_timeout, write_timeout: write_timeout,
-                                       expect: expect)
+        execute(uri, request, headers, expect: expect, **timeout_opts)
       end
 
       # Set a Bearer token for all subsequent requests.
@@ -173,6 +158,21 @@ module Philiprehberger
         encoded = Base64.strict_encode64("#{username}:#{password}")
         @default_headers["authorization"] = "Basic #{encoded}"
         self
+      end
+
+      private
+
+      def assign_timeout_opts(opts)
+        @open_timeout = opts[:open_timeout]
+        @read_timeout = opts[:read_timeout]
+        @write_timeout = opts[:write_timeout]
+      end
+
+      def assign_retry_opts(opts)
+        @retries = opts.fetch(:retries, 0)
+        @retry_delay = opts.fetch(:retry_delay, 1)
+        @retry_backoff = opts.fetch(:retry_backoff, :fixed)
+        @retry_on_status = opts[:retry_on_status]
       end
     end
   end

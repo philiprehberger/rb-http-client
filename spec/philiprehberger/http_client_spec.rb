@@ -494,7 +494,7 @@ RSpec.describe Philiprehberger::HttpClient do
 
       allow(http_double).to receive(:request).and_yield(raw_response)
 
-      response = client.get("/stream") { |_chunk| }
+      response = client.get("/stream") { |_chunk| nil }
 
       expect(response.status).to eq(200)
       expect(response.streaming?).to be(true)
@@ -515,7 +515,7 @@ RSpec.describe Philiprehberger::HttpClient do
 
       allow(http_double).to receive(:request).and_yield(raw_response)
 
-      response = client.get("/stream") { |_chunk| }
+      response = client.get("/stream") { |_chunk| nil }
 
       expect(response.headers["content-type"]).to eq("text/plain")
     end
@@ -568,13 +568,13 @@ RSpec.describe Philiprehberger::HttpClient do
       file.write("file contents")
       file.rewind
 
-      stub_request(:post, "https://api.example.com/upload")
-        .with { |req|
-          req.headers["Content-Type"]&.include?("multipart/form-data") &&
-            req.body.include?("file contents") &&
-            req.body.include?(".jpg")
-        }
-        .to_return(status: 200, body: '{"id":1}')
+      stub = stub_request(:post, "https://api.example.com/upload")
+      stub.with do |req|
+        req.headers["Content-Type"]&.include?("multipart/form-data") &&
+          req.body.include?("file contents") &&
+          req.body.include?(".jpg")
+      end
+      stub.to_return(status: 200, body: '{"id":1}')
 
       response = client.post("/upload", multipart: { file: file, name: "vacation" })
 
@@ -585,12 +585,12 @@ RSpec.describe Philiprehberger::HttpClient do
     end
 
     it "includes boundary in content-type header" do
-      stub_request(:post, "https://api.example.com/upload")
-        .with { |req|
-          ct = req.headers["Content-Type"]
-          ct&.start_with?("multipart/form-data; boundary=")
-        }
-        .to_return(status: 200, body: "ok")
+      stub = stub_request(:post, "https://api.example.com/upload")
+      stub.with do |req|
+        ct = req.headers["Content-Type"]
+        ct&.start_with?("multipart/form-data; boundary=")
+      end
+      stub.to_return(status: 200, body: "ok")
 
       client.post("/upload", multipart: { key: "value" })
     end
@@ -805,23 +805,23 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:get, "https://api.example.com/fail")
         .to_return(status: 404, body: "not found")
 
-      expect {
+      expect do
         client.get("/fail", expect: [200])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
         expect(e.response.status).to eq(404)
         expect(e.message).to include("HTTP 404")
-      }
+      end
     end
 
     it "raises HttpError for server errors when expecting success" do
       stub_request(:post, "https://api.example.com/create")
         .to_return(status: 500, body: "internal error")
 
-      expect {
+      expect do
         client.post("/create", json: { a: 1 }, expect: [201])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
         expect(e.response.status).to eq(500)
-      }
+      end
     end
 
     it "works with PUT requests" do
@@ -837,9 +837,9 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:patch, "https://api.example.com/resource/1")
         .to_return(status: 422, body: "unprocessable")
 
-      expect {
+      expect do
         client.patch("/resource/1", json: { a: 1 }, expect: [200])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+      end.to raise_error(Philiprehberger::HttpClient::HttpError)
     end
 
     it "works with DELETE requests" do
@@ -855,9 +855,9 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:head, "https://api.example.com/health")
         .to_return(status: 503, body: "")
 
-      expect {
+      expect do
         client.head("/health", expect: [200])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+      end.to raise_error(Philiprehberger::HttpClient::HttpError)
     end
 
     it "does not validate when expect is nil" do
@@ -874,11 +874,11 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:get, "https://api.example.com/long")
         .to_return(status: 400, body: long_body)
 
-      expect {
+      expect do
         client.get("/long", expect: [200])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError) { |e|
+      end.to raise_error(Philiprehberger::HttpClient::HttpError) do |e|
         expect(e.message.length).to be < 250
-      }
+      end
     end
 
     it "interceptors run before validation" do
@@ -891,9 +891,9 @@ RSpec.describe Philiprehberger::HttpClient do
       stub_request(:get, "https://api.example.com/fail")
         .to_return(status: 400, body: "bad")
 
-      expect {
+      expect do
         client.get("/fail", expect: [200])
-      }.to raise_error(Philiprehberger::HttpClient::HttpError)
+      end.to raise_error(Philiprehberger::HttpClient::HttpError)
 
       expect(interceptor_called).to be(true)
     end

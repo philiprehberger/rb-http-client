@@ -43,17 +43,15 @@ module Philiprehberger
       # @api private
       def self.build_file_part(name, file, boundary)
         filename = file.respond_to?(:path) ? File.basename(file.path) : "upload"
+        content = read_file_content(file)
+        disposition = "Content-Disposition: form-data; name=\"#{name}\"; filename=\"#{filename}\"#{CRLF}"
+        "--#{boundary}#{CRLF}#{disposition}Content-Type: application/octet-stream#{CRLF}#{CRLF}#{content}#{CRLF}"
+      end
+
+      def self.read_file_content(file)
         content = file.read
         file.rewind if file.respond_to?(:rewind)
-
-        "".dup.tap do |part|
-          part << "--#{boundary}#{CRLF}"
-          part << "Content-Disposition: form-data; name=\"#{name}\"; filename=\"#{filename}\"#{CRLF}"
-          part << "Content-Type: application/octet-stream#{CRLF}"
-          part << CRLF
-          part << content
-          part << CRLF
-        end
+        content
       end
 
       # @api private
