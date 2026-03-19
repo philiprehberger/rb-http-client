@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Fix RuboCop Style/StringLiterals violations in gemspec
+
 ## 0.4.0
 
 ### Added
