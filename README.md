@@ -1,8 +1,6 @@
 # philiprehberger-http_client
 
-[![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://badge.fury.io/rb/philiprehberger-http_client)
-[![CI](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
+[![Tests](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml) [![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://rubygems.org/gems/philiprehberger-http_client) [![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
 
 Lightweight HTTP client wrapper with retries and interceptors.
 

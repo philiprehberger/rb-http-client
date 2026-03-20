@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.4.2] - 2026-03-20
+
+### Fixed
+- Fix badge order and Gem Version badge URL in README
+
 ## 0.4.1
 
 - Fix RuboCop Style/StringLiterals violations in gemspec
