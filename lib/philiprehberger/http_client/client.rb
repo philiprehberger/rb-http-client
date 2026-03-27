@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require "base64"
-require "net/http"
-require "uri"
-require "json"
+require 'base64'
+require 'net/http'
+require 'uri'
+require 'json'
 
 module Philiprehberger
   module HttpClient
@@ -20,7 +20,7 @@ module Philiprehberger
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
       def initialize(base_url:, headers: {}, timeout: 30, **opts)
-        @base_url = base_url.chomp("/")
+        @base_url = base_url.chomp('/')
         @default_headers = headers
         @timeout = timeout
         assign_timeout_opts(opts)
@@ -145,7 +145,7 @@ module Philiprehberger
       # @param token [String] the bearer token
       # @return [self]
       def bearer_token(token)
-        @default_headers["authorization"] = "Bearer #{token}"
+        @default_headers['authorization'] = "Bearer #{token}"
         self
       end
 
@@ -156,7 +156,7 @@ module Philiprehberger
       # @return [self]
       def basic_auth(username, password)
         encoded = Base64.strict_encode64("#{username}:#{password}")
-        @default_headers["authorization"] = "Basic #{encoded}"
+        @default_headers['authorization'] = "Basic #{encoded}"
         self
       end
 
