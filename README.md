@@ -3,6 +3,7 @@
 [![Tests](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-http-client/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://rubygems.org/gems/philiprehberger-http_client)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-http-client)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 Lightweight HTTP client wrapper with retries and interceptors
 
@@ -318,4 +319,4 @@ bundle exec rubocop
 
 ## License
 
-MIT
+[MIT](LICENSE)
