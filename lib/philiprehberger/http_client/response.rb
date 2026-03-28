@@ -39,6 +39,25 @@ module Philiprehberger
       def json
         @json ||= JSON.parse(body)
       end
+
+      # Returns request timing metrics (nil if not available).
+      #
+      # @return [Metrics, nil]
+      attr_reader :metrics
+
+      # Returns the redirect chain (empty if no redirects occurred).
+      #
+      # @return [Array<String>]
+      def redirects
+        @redirects || []
+      end
+
+      # Returns true if the response was redirected.
+      #
+      # @return [Boolean]
+      def redirected?
+        !redirects.empty?
+      end
     end
   end
 end

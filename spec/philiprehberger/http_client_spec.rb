@@ -1555,4 +1555,210 @@ RSpec.describe Philiprehberger::HttpClient do
       expect(response.status).to eq(200)
     end
   end
+
+  describe 'CookieJar' do
+    let(:jar) { Philiprehberger::HttpClient::CookieJar.new }
+
+    it 'stores and retrieves cookies' do
+      uri = URI.parse('https://example.com/path')
+      jar.store('session=abc123; Path=/; HttpOnly', uri)
+
+      expect(jar.cookie_header(uri)).to eq('session=abc123')
+    end
+
+    it 'returns nil when no cookies match' do
+      uri = URI.parse('https://example.com/path')
+      expect(jar.cookie_header(uri)).to be_nil
+    end
+
+    it 'respects domain matching' do
+      uri = URI.parse('https://app.example.com/path')
+      jar.store('token=xyz; Domain=example.com; Path=/', uri)
+
+      expect(jar.cookie_header(URI.parse('https://app.example.com/'))).to eq('token=xyz')
+      expect(jar.cookie_header(URI.parse('https://other.com/'))).to be_nil
+    end
+
+    it 'respects path matching' do
+      uri = URI.parse('https://example.com/api/v1')
+      jar.store('token=xyz; Path=/api', uri)
+
+      expect(jar.cookie_header(URI.parse('https://example.com/api/v2'))).to eq('token=xyz')
+      expect(jar.cookie_header(URI.parse('https://example.com/web'))).to be_nil
+    end
+
+    it 'replaces cookies with same name/domain/path' do
+      uri = URI.parse('https://example.com/')
+      jar.store('session=old; Path=/', uri)
+      jar.store('session=new; Path=/', uri)
+
+      expect(jar.size).to eq(1)
+      expect(jar.cookie_header(uri)).to eq('session=new')
+    end
+
+    it 'clears all cookies' do
+      uri = URI.parse('https://example.com/')
+      jar.store('a=1; Path=/', uri)
+      jar.store('b=2; Path=/', uri)
+      jar.clear
+
+      expect(jar.size).to eq(0)
+    end
+
+    it 'respects secure flag' do
+      uri = URI.parse('https://example.com/')
+      jar.store('token=abc; Secure; Path=/', uri)
+
+      expect(jar.cookie_header(URI.parse('https://example.com/'))).to eq('token=abc')
+      expect(jar.cookie_header(URI.parse('http://example.com/'))).to be_nil
+    end
+  end
+
+  describe 'cookie jar integration' do
+    let(:client) { described_class.new(base_url: base_url, cookies: true) }
+
+    it 'exposes cookie_jar when cookies enabled' do
+      expect(client.cookie_jar).to be_a(Philiprehberger::HttpClient::CookieJar)
+    end
+
+    it 'does not expose cookie_jar when cookies disabled' do
+      no_cookie_client = described_class.new(base_url: base_url)
+      expect(no_cookie_client.cookie_jar).to be_nil
+    end
+
+    it 'stores cookies from Set-Cookie response headers' do
+      stub_request(:get, 'https://api.example.com/login')
+        .to_return(status: 200, body: 'ok', headers: { 'set-cookie' => 'session=abc123; Path=/' })
+
+      client.get('/login')
+      expect(client.cookie_jar.size).to eq(1)
+    end
+  end
+
+  describe 'Metrics' do
+    it 'returns metrics on response' do
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'hello')
+
+      response = client.get('/data')
+      expect(response.metrics).to be_a(Philiprehberger::HttpClient::Metrics)
+      expect(response.metrics.total_time).to be >= 0
+    end
+
+    it 'provides timing as hash' do
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'hello')
+
+      response = client.get('/data')
+      h = response.metrics.to_h
+      expect(h).to include(:total_time, :first_byte_time, :dns_time, :connect_time, :tls_time)
+    end
+  end
+
+  describe 'response decompression' do
+    it 'decompresses gzip responses' do
+      compressed = StringIO.new.tap do |io|
+        gz = Zlib::GzipWriter.new(io)
+        gz.write('hello world')
+        gz.close
+      end.string
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: compressed, headers: { 'content-encoding' => 'gzip' })
+
+      response = client.get('/data')
+      expect(response.body).to eq('hello world')
+    end
+
+    it 'decompresses deflate responses' do
+      compressed = Zlib::Deflate.deflate('hello deflate')
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: compressed, headers: { 'content-encoding' => 'deflate' })
+
+      response = client.get('/data')
+      expect(response.body).to eq('hello deflate')
+    end
+
+    it 'passes through uncompressed responses' do
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'plain text')
+
+      response = client.get('/data')
+      expect(response.body).to eq('plain text')
+    end
+  end
+
+  describe 'redirect following' do
+    it 'follows 302 redirects' do
+      stub_request(:get, 'https://api.example.com/old')
+        .to_return(status: 302, headers: { 'location' => 'https://api.example.com/new' })
+      stub_request(:get, 'https://api.example.com/new')
+        .to_return(status: 200, body: 'arrived')
+
+      response = client.get('/old')
+      expect(response.status).to eq(200)
+      expect(response.body).to eq('arrived')
+      expect(response.redirected?).to be true
+      expect(response.redirects).to eq(['https://api.example.com/new'])
+    end
+
+    it 'follows 301 redirects' do
+      stub_request(:get, 'https://api.example.com/moved')
+        .to_return(status: 301, headers: { 'location' => 'https://api.example.com/final' })
+      stub_request(:get, 'https://api.example.com/final')
+        .to_return(status: 200, body: 'done')
+
+      response = client.get('/moved')
+      expect(response.status).to eq(200)
+      expect(response.redirected?).to be true
+    end
+
+    it 'stops after max_redirects' do
+      redirect_client = described_class.new(base_url: base_url, max_redirects: 2)
+
+      stub_request(:get, 'https://api.example.com/a')
+        .to_return(status: 302, headers: { 'location' => 'https://api.example.com/b' })
+      stub_request(:get, 'https://api.example.com/b')
+        .to_return(status: 302, headers: { 'location' => 'https://api.example.com/c' })
+      stub_request(:get, 'https://api.example.com/c')
+        .to_return(status: 302, headers: { 'location' => 'https://api.example.com/d' })
+
+      response = redirect_client.get('/a')
+      expect(response.status).to eq(302)
+      expect(response.redirects.size).to eq(2)
+    end
+
+    it 'does not follow redirects when disabled' do
+      no_redirect_client = described_class.new(base_url: base_url, follow_redirects: false)
+
+      stub_request(:get, 'https://api.example.com/redir')
+        .to_return(status: 302, headers: { 'location' => 'https://api.example.com/target' })
+
+      response = no_redirect_client.get('/redir')
+      expect(response.status).to eq(302)
+      expect(response.redirected?).to be false
+    end
+
+    it 'reports no redirects for direct responses' do
+      stub_request(:get, 'https://api.example.com/direct')
+        .to_return(status: 200, body: 'ok')
+
+      response = client.get('/direct')
+      expect(response.redirected?).to be false
+      expect(response.redirects).to eq([])
+    end
+  end
+
+  describe 'proxy configuration' do
+    it 'accepts proxy option' do
+      proxy_client = described_class.new(base_url: base_url, proxy: 'http://proxy:8080')
+      expect(proxy_client).to be_a(Philiprehberger::HttpClient::Client)
+    end
+
+    it 'works without proxy' do
+      no_proxy_client = described_class.new(base_url: base_url)
+      expect(no_proxy_client).to be_a(Philiprehberger::HttpClient::Client)
+    end
+  end
 end
