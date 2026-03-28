@@ -7,7 +7,7 @@ module Philiprehberger
     # Simple cookie jar that stores cookies across requests within a session.
     # Parses Set-Cookie headers and sends matching cookies back on subsequent requests.
     class CookieJar
-      Cookie = Data.define(:name, :value, :domain, :path, :expires, :secure, :http_only)
+      Cookie = Struct.new(:name, :value, :domain, :path, :expires, :secure, :http_only, keyword_init: true)
 
       def initialize
         @cookies = []
