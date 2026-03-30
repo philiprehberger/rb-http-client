@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'securerandom'
 require 'zlib'
 require 'stringio'
 
@@ -33,7 +34,7 @@ module Philiprehberger
         apply_body(request, opts, headers)
         execute(uri, request, headers, timeout: opts[:timeout], open_timeout: opts[:open_timeout],
                                        read_timeout: opts[:read_timeout], write_timeout: opts[:write_timeout],
-                                       expect: opts[:expect], &)
+                                       expect: opts[:expect], request_id: opts[:request_id], &)
       end
 
       def build_uri(path, params = {})
@@ -61,17 +62,21 @@ module Philiprehberger
         request['cookie'] = cookie_value if cookie_value
       end
 
-      def execute(uri, request, extra_headers, expect: nil, **timeout_opts, &block)
+      def execute(uri, request, extra_headers, expect: nil, request_id: nil, **timeout_opts, &block)
+        rid = request_id || SecureRandom.uuid
+        extra_headers['x-request-id'] ||= rid
         apply_headers(request, extra_headers)
         @request_count += 1
-        run_execute_pipeline(uri, request, expect, **timeout_opts, &block)
+        run_execute_pipeline(uri, request, expect, rid, **timeout_opts, &block)
       end
 
-      def run_execute_pipeline(uri, request, expect, **timeout_opts, &)
+      def run_execute_pipeline(uri, request, expect, request_id, **timeout_opts, &)
         context = { request: { uri: uri, method: request.method, headers: request.to_hash } }
         run_interceptors(context)
         response = perform_with_retries(uri, request, **timeout_opts, &)
         response = follow_redirect_chain(response, request, **timeout_opts) if should_follow_redirect?(response)
+        response.instance_variable_set(:@request_id, request_id)
+        cache_response(uri, response) if @cache && request.is_a?(Net::HTTP::Get)
         context[:response] = response
         run_interceptors(context)
         validate_response!(response, expect) if expect
@@ -81,7 +86,7 @@ module Philiprehberger
       def perform_request(uri, request, **timeout_opts, &block)
         metrics = Metrics.new
         start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        http = build_http(uri, **timeout_opts)
+        http = checkout_or_build_http(uri, **timeout_opts)
 
         if block
           response = perform_streaming_request(http, request, &block)
@@ -95,6 +100,7 @@ module Philiprehberger
         total_time = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start_time
         metrics.record(:total_time, total_time)
         store_cookies(response, uri)
+        checkin_http(uri, http)
         response.instance_variable_set(:@metrics, metrics)
 
         response
@@ -202,6 +208,30 @@ module Philiprehberger
 
         current_response.instance_variable_set(:@redirects, redirects) unless redirects.empty?
         current_response
+      end
+
+      def checkout_or_build_http(uri, **timeout_opts)
+        if @pool
+          conn = @pool.checkout(uri)
+          if conn
+            apply_timeouts(conn, timeout_opts)
+            return conn
+          end
+        end
+        build_http(uri, **timeout_opts)
+      end
+
+      def checkin_http(uri, http)
+        return unless @pool
+
+        @pool.checkin(uri, http)
+      end
+
+      def cache_response(uri, response)
+        return unless response.ok?
+        return if response.streaming?
+
+        @cache.store(uri, response)
       end
 
       def validate_response!(response, expected_statuses)

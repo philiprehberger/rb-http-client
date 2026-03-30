@@ -23,6 +23,12 @@ Add to your Gemfile:
 gem "philiprehberger-http_client"
 ```
 
+Then run:
+
+```bash
+bundle install
+```
+
 Or install directly:
 
 ```bash
@@ -35,13 +41,8 @@ gem install philiprehberger-http_client
 require "philiprehberger/http_client"
 
 client = Philiprehberger::HttpClient.new(base_url: "https://api.example.com")
-```
 
-### GET request
-
-```ruby
 response = client.get("/users", params: { page: 1 })
-
 puts response.status  # => 200
 puts response.ok?     # => true
 puts response.json    # => [{"id" => 1, "name" => "Alice"}, ...]
@@ -120,14 +121,6 @@ end
 # Returns a Response with body: nil and streaming?: true
 ```
 
-Streaming works with all HTTP methods that accept a block:
-
-```ruby
-client.post("/export", json: { format: "csv" }) do |chunk|
-  output.write(chunk)
-end
-```
-
 ### Authentication helpers
 
 ```ruby
@@ -157,10 +150,6 @@ rescue Philiprehberger::HttpClient::Error => e
   puts "Client error: #{e.message}"
 end
 ```
-
-- `TimeoutError` — raised on `Net::OpenTimeout` and `Net::ReadTimeout`
-- `NetworkError` — raised on connection refused, reset, host unreachable, etc.
-- `HttpError` — raised when response status doesn't match `expect:` list (includes `.response`)
 
 ### Response validation
 
@@ -219,8 +208,6 @@ client = Philiprehberger::HttpClient.new(
   retry_on_status: [429, 503]
 )
 ```
-
-> **Note:** Network error retries and HTTP status retries both count toward the same retry limit.
 
 ### Exponential backoff
 
@@ -317,6 +304,68 @@ metrics.first_byte_time  # => 0.180
 metrics.to_h             # => { dns_time: 0.0, connect_time: 0.0, ... }
 ```
 
+### Connection pooling
+
+Reuse TCP connections to the same host for better performance:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  pool: true,       # enable connection pooling
+  pool_size: 10     # max connections per host (default: 5)
+)
+
+# Connections are automatically reused across requests
+10.times { client.get("/data") }  # reuses the same connection
+
+# Drain all pooled connections
+client.pool.drain
+```
+
+### Request ID tracking
+
+Every request is assigned a unique `X-Request-ID` header automatically:
+
+```ruby
+response = client.get("/api/data")
+response.request_id  # => "550e8400-e29b-41d4-a716-446655440000"
+
+# Override with a custom request ID
+response = client.get("/api/data", request_id: "my-custom-id")
+response.request_id  # => "my-custom-id"
+
+# The same request ID is preserved across retries
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  retries: 3
+)
+response = client.get("/unstable")
+response.request_id  # same ID used for all retry attempts
+```
+
+### Response caching
+
+Cache GET responses in memory with automatic `Cache-Control` support:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  cache: true
+)
+
+# First request hits the server
+response = client.get("/data")
+
+# Second request returns cached response (if within max-age)
+response = client.get("/data")
+
+# Conditional requests: sends If-None-Match / If-Modified-Since
+# when cache entry has ETag or Last-Modified
+
+# Flush the cache
+client.clear_cache!
+```
+
 ### All HTTP methods
 
 ```ruby
@@ -348,6 +397,9 @@ client.head("/resource")
 | `proxy` | String | `nil` | Proxy URL (also reads `HTTP_PROXY`/`HTTPS_PROXY` env vars) |
 | `follow_redirects` | Boolean | `true` | Follow 3xx redirects automatically |
 | `max_redirects` | Integer | `5` | Maximum number of redirects to follow |
+| `pool` | Boolean | `false` | Enable connection pooling |
+| `pool_size` | Integer | `5` | Maximum connections per host:port |
+| `cache` | Boolean | `false` | Enable in-memory GET response caching |
 
 ### Methods
 
@@ -363,6 +415,9 @@ client.head("/resource")
 | `cookie_jar` | Returns the `CookieJar` instance (nil if cookies disabled) |
 | `bearer_token(token)` | Set Bearer token auth for all subsequent requests |
 | `basic_auth(user, pass)` | Set Basic auth for all subsequent requests |
+| `clear_cache!` | Flush the response cache |
+| `pool` | Returns the `Pool` instance (nil if pooling disabled) |
+| `cache` | Returns the `Cache` instance (nil if caching disabled) |
 
 ### Per-request options
 
@@ -379,6 +434,7 @@ client.head("/resource")
 | `read_timeout` | Integer | Per-request read timeout |
 | `write_timeout` | Integer | Per-request write timeout |
 | `expect` | Array | Expected status codes — raises `HttpError` otherwise |
+| `request_id` | String | Custom request ID (auto-generated UUID if omitted) |
 
 ### `Response`
 
@@ -393,6 +449,7 @@ client.head("/resource")
 | `metrics` | Metrics | Request timing breakdown (total_time, first_byte_time, etc.) |
 | `redirects` | Array | Redirect chain URLs (empty if no redirects) |
 | `redirected?` | Boolean | `true` if response was redirected |
+| `request_id` | String | Request ID for this request |
 
 ### Errors
 
