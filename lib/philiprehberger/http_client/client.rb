@@ -27,6 +27,7 @@ module Philiprehberger
       # @param pool [Boolean, nil] Enable connection pooling (default: false)
       # @param pool_size [Integer, nil] Maximum connections per host:port (default: 5)
       # @param cache [Boolean, nil] Enable response caching for GET requests (default: false)
+      # @param on_request [Proc, nil] Callback invoked after each request with (method, uri, status, duration)
       def initialize(base_url:, headers: {}, timeout: 30, **opts)
         @base_url = base_url.chomp('/')
         @default_headers = headers
@@ -38,6 +39,7 @@ module Philiprehberger
         assign_redirect_opts(opts)
         assign_pool_opts(opts)
         assign_cache_opts(opts)
+        @on_request = opts[:on_request]
         @interceptors = []
         @request_count = 0
       end
