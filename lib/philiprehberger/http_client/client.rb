@@ -204,6 +204,25 @@ module Philiprehberger
         @cache&.clear!
       end
 
+      # Drain the connection pool. No-op if pooling is disabled.
+      #
+      # @return [void]
+      def close
+        @pool&.drain
+      end
+
+      # Create a client, yield it to the block, and ensure it is closed afterward.
+      #
+      # @param opts [Hash] Options forwarded to {#initialize}
+      # @yield [Client] the client instance
+      # @return [Object] the return value of the block
+      def self.open(**opts)
+        client = new(**opts)
+        yield client
+      ensure
+        client&.close
+      end
+
       private
 
       def assign_timeout_opts(opts)

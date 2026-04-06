@@ -22,5 +22,14 @@ module Philiprehberger
     def self.new(**options)
       Client.new(**options)
     end
+
+    # Block form — creates a client, yields it, and ensures cleanup.
+    #
+    # @param options [Hash] Forwarded to {Client#initialize}
+    # @yield [Client]
+    # @return [Object] the return value of the block
+    def self.open(...)
+      Client.open(...)
+    end
   end
 end

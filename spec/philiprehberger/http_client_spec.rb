@@ -1843,4 +1843,49 @@ RSpec.describe Philiprehberger::HttpClient do
       expect(no_proxy_client).to be_a(Philiprehberger::HttpClient::Client)
     end
   end
+
+  describe 'Response initialization' do
+    it 'initializes metrics as nil' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: 'ok')
+      expect(response.metrics).to be_nil
+    end
+
+    it 'initializes redirects as an empty array' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: 'ok')
+      expect(response.redirects).to eq([])
+    end
+  end
+
+  describe '#close' do
+    it 'can be called without error when pooling is disabled' do
+      expect { client.close }.not_to raise_error
+    end
+
+    it 'can be called without error when pooling is enabled' do
+      pooled_client = described_class.new(base_url: base_url, pool: true)
+      expect { pooled_client.close }.not_to raise_error
+    end
+  end
+
+  describe '.open' do
+    it 'yields a client and returns the block value' do
+      stub_request(:get, 'https://api.example.com/ping')
+        .to_return(status: 200, body: 'pong')
+
+      result = Philiprehberger::HttpClient.open(base_url: base_url) do |c|
+        response = c.get('/ping')
+        response.body
+      end
+
+      expect(result).to eq('pong')
+    end
+
+    it 'ensures close is called even if the block raises' do
+      expect do
+        Philiprehberger::HttpClient.open(base_url: base_url, pool: true) do |_c|
+          raise 'boom'
+        end
+      end.to raise_error(RuntimeError, 'boom')
+    end
+  end
 end

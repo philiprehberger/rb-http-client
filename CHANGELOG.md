@@ -7,6 +7,17 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-04-05
+
+### Added
+- `Client#close` method to explicitly drain the connection pool
+- `Client.open(**opts, &block)` block form with automatic cleanup
+
+### Fixed
+- Response objects now properly initialize `metrics` and `redirects` attributes
+- 307 and 308 redirects now preserve the original HTTP method instead of converting to GET
+- Clarified that `dns_time`, `connect_time`, and `tls_time` metrics are unavailable from Net::HTTP
+
 ## [0.7.0] - 2026-04-04
 
 ### Added
