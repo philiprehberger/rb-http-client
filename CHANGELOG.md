@@ -7,6 +7,11 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-04-07
+
+### Added
+- `ConfigurationError` raised at initialization for invalid `timeout`, `open_timeout`, `read_timeout`, `write_timeout`, `retries`, `retry_delay`, `retry_backoff`, or `retry_on_status` values — fail fast instead of producing confusing runtime errors
+
 ## [0.8.0] - 2026-04-05
 
 ### Added

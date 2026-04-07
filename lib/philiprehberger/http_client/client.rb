@@ -32,8 +32,10 @@ module Philiprehberger
         @base_url = base_url.chomp('/')
         @default_headers = headers
         @timeout = timeout
+        validate_timeout!(:timeout, timeout)
         assign_timeout_opts(opts)
         assign_retry_opts(opts)
+        validate_config!
         assign_cookie_opts(opts)
         assign_proxy_opts(opts)
         assign_redirect_opts(opts)
@@ -229,6 +231,31 @@ module Philiprehberger
         @open_timeout = opts[:open_timeout]
         @read_timeout = opts[:read_timeout]
         @write_timeout = opts[:write_timeout]
+        validate_timeout!(:open_timeout, @open_timeout)
+        validate_timeout!(:read_timeout, @read_timeout)
+        validate_timeout!(:write_timeout, @write_timeout)
+      end
+
+      def validate_timeout!(name, value)
+        return if value.nil?
+        raise ConfigurationError, "#{name} must be Numeric, got #{value.class}" unless value.is_a?(Numeric)
+        raise ConfigurationError, "#{name} must be non-negative, got #{value}" if value.negative?
+      end
+
+      def validate_config!
+        unless @retries.is_a?(Integer) && !@retries.negative?
+          raise ConfigurationError, "retries must be a non-negative Integer, got #{@retries.inspect}"
+        end
+        unless @retry_delay.is_a?(Numeric) && !@retry_delay.negative?
+          raise ConfigurationError, "retry_delay must be a non-negative Numeric, got #{@retry_delay.inspect}"
+        end
+        unless %i[fixed exponential].include?(@retry_backoff)
+          raise ConfigurationError, "retry_backoff must be :fixed or :exponential, got #{@retry_backoff.inspect}"
+        end
+        return if @retry_on_status.nil?
+        return if @retry_on_status.respond_to?(:include?)
+
+        raise ConfigurationError, 'retry_on_status must be an Array of status codes'
       end
 
       def assign_retry_opts(opts)
