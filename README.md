@@ -396,6 +396,21 @@ client.get("/users")
 # Prints: GET https://api.example.com/users -> 200 (0.234s)
 ```
 
+### HEAD requests
+
+Issue a HEAD request to retrieve response headers without downloading the body. The call mirrors `#get` — same options, same middleware/retry/pool pipeline — but the returned `Response#body` is always the empty string:
+
+```ruby
+response = client.head("/resource", headers: { "If-None-Match" => "abc123" })
+
+response.status              # => 200
+response.body                # => ""
+response.headers["etag"]     # => "W/\"abc123\""
+response.headers["content-length"]  # => "1024"
+```
+
+HEAD requests honor `params`, `headers`, `timeout`, `expect`, and `request_id` just like GET.
+
 ### All HTTP methods
 
 ```ruby

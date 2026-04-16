@@ -7,6 +7,11 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-04-16
+
+### Added
+- README documentation and spec coverage for `Client#head` — request signature, empty-body response contract, and full middleware/retry/pool/interceptor pipeline behavior
+
 ## [0.8.1] - 2026-04-07
 
 ### Added
