@@ -7,6 +7,11 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-04-20
+
+### Added
+- `Response#json?` — returns `true` when the `Content-Type` header advertises JSON, including RFC 6838 `+json` structured-syntax suffixes (e.g. `application/problem+json`). Case-insensitive header lookup; charset parameters are ignored.
+
 ## [0.8.2] - 2026-04-16
 
 ### Added

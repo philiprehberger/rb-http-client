@@ -493,6 +493,7 @@ client.head("/resource")
 | `headers` | Hash    | Response headers                |
 | `ok?`     | Boolean | `true` if status is 200-299     |
 | `json`    | Hash    | Parsed JSON body                |
+| `json?`   | Boolean | `true` if `Content-Type` is `application/json` or `+json` suffix |
 | `streaming?` | Boolean | `true` if response was streamed |
 | `metrics` | Metrics | Request timing breakdown (total_time, first_byte_time, etc.) |
 | `redirects` | Array | Redirect chain URLs (empty if no redirects) |
