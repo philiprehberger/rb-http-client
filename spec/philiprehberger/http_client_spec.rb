@@ -2002,6 +2002,48 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe 'Response#json?' do
+    it 'returns true for application/json content type' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '{}', headers: { 'Content-Type' => 'application/json' }
+      )
+      expect(response.json?).to be true
+    end
+
+    it 'ignores charset parameters' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '{}', headers: { 'Content-Type' => 'application/json; charset=utf-8' }
+      )
+      expect(response.json?).to be true
+    end
+
+    it 'matches +json structured suffix types (e.g. problem+json)' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 400, body: '{}', headers: { 'Content-Type' => 'application/problem+json' }
+      )
+      expect(response.json?).to be true
+    end
+
+    it 'is case-insensitive on the header name and value' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '{}', headers: { 'content-type' => 'APPLICATION/JSON' }
+      )
+      expect(response.json?).to be true
+    end
+
+    it 'returns false for text/html' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '<p></p>', headers: { 'Content-Type' => 'text/html' }
+      )
+      expect(response.json?).to be false
+    end
+
+    it 'returns false when no content type header is present' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: '{}')
+      expect(response.json?).to be false
+    end
+  end
+
   describe '#close' do
     it 'can be called without error when pooling is disabled' do
       expect { client.close }.not_to raise_error
