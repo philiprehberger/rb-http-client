@@ -15,18 +15,28 @@ require_relative 'http_client/client'
 
 module Philiprehberger
   module HttpClient
-    # Convenience constructor.
+    # Convenience constructor that instantiates a new {Client}.
     #
-    # @param options [Hash] Forwarded to {Client#initialize}
-    # @return [Client]
+    # This is a thin wrapper around {Client.new} so callers can write
+    # `Philiprehberger::HttpClient.new(base_url: '...')` without reaching
+    # into the nested {Client} constant.
+    #
+    # @param options [Hash] Keyword options forwarded to {Client#initialize}
+    #   (e.g. `base_url:`, `headers:`, `timeout:`, `retries:`, `pool:`, `cache:`)
+    # @return [Client] a new configured client instance
     def self.new(**options)
       Client.new(**options)
     end
 
-    # Block form — creates a client, yields it, and ensures cleanup.
+    # Block form constructor — creates a {Client}, yields it, and guarantees
+    # cleanup by calling `#close` in an `ensure` block when the block exits.
     #
-    # @param options [Hash] Forwarded to {Client#initialize}
-    # @yield [Client]
+    # Equivalent to {Client.open}; prefer this form when you want automatic
+    # connection pool draining without manually calling `#close`.
+    #
+    # @param options [Hash] Keyword options forwarded to {Client#initialize}
+    # @yield [client] yields the client instance to the block
+    # @yieldparam client [Client] the newly created client
     # @return [Object] the return value of the block
     def self.open(...)
       Client.open(...)

@@ -7,6 +7,12 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-04-23
+
+### Changed
+- Added YARD documentation on `Philiprehberger::HttpClient.new` and `Philiprehberger::HttpClient.open` module methods.
+- Completed Keep a Changelog version link references for all released versions.
+
 ## [0.9.0] - 2026-04-20
 
 ### Added
@@ -171,5 +177,27 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[0.2.0]: https://github.com/philiprehberger/rb-http-client/releases/tag/v0.2.0
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.0...v0.9.1
+[0.9.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.2...v0.9.0
+[0.8.2]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.7.0...v0.8.0
+[0.7.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.7...v0.5.0
+[0.4.7]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.6...v0.4.7
+[0.4.6]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.5...v0.4.6
+[0.4.5]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.4...v0.4.5
+[0.4.4]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.3...v0.4.4
+[0.4.3]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.2...v0.4.3
+[0.4.2]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.4.0...v0.4.1
+[0.4.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.3.3...v0.4.0
+[0.3.3]: https://github.com/philiprehberger/rb-http-client/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/philiprehberger/rb-http-client/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/philiprehberger/rb-http-client/releases/tag/v0.1.0
