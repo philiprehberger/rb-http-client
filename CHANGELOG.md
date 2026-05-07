@@ -3,9 +3,18 @@
 All notable changes to this gem will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.10.0] - 2026-05-07
+
+### Added
+- `Response#client_error?` — returns true for 4xx status codes.
+- `Response#server_error?` — returns true for 5xx status codes.
+
+### Changed
+- CHANGELOG header wording aligned with the standard template ("this project adheres" instead of "this gem adheres").
 
 ## [0.9.1] - 2026-04-23
 
@@ -177,7 +186,8 @@ and this gem adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.1...v0.8.2

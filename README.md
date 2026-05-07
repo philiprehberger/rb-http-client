@@ -38,9 +38,11 @@ require "philiprehberger/http_client"
 client = Philiprehberger::HttpClient.new(base_url: "https://api.example.com")
 
 response = client.get("/users", params: { page: 1 })
-puts response.status  # => 200
-puts response.ok?     # => true
-puts response.json    # => [{"id" => 1, "name" => "Alice"}, ...]
+puts response.status         # => 200
+puts response.ok?            # => true
+puts response.client_error?  # => false (true for 4xx)
+puts response.server_error?  # => false (true for 5xx)
+puts response.json           # => [{"id" => 1, "name" => "Alice"}, ...]
 ```
 
 ### POST with JSON body
@@ -492,6 +494,8 @@ client.head("/resource")
 | `body`    | String  | Raw response body (`nil` if streamed) |
 | `headers` | Hash    | Response headers                |
 | `ok?`     | Boolean | `true` if status is 200-299     |
+| `client_error?` | Boolean | Returns true for 4xx status codes |
+| `server_error?` | Boolean | Returns true for 5xx status codes |
 | `json`    | Hash    | Parsed JSON body                |
 | `json?`   | Boolean | `true` if `Content-Type` is `application/json` or `+json` suffix |
 | `streaming?` | Boolean | `true` if response was streamed |

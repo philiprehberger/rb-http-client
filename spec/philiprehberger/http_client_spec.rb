@@ -1094,6 +1094,121 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe '#client_error?' do
+    it 'returns false for status 200' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 200, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(false)
+      expect(response.server_error?).to be(false)
+    end
+
+    it 'returns true for status 404' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 404, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(true)
+      expect(response.server_error?).to be(false)
+    end
+
+    it 'returns true for status 422' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 422, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(true)
+    end
+
+    it 'returns false for status 500' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 500, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(false)
+    end
+
+    it 'returns false for status 100' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 100, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(false)
+    end
+
+    it 'returns false for status 300' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 300, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.client_error?).to be(false)
+    end
+  end
+
+  describe '#server_error?' do
+    it 'returns false for status 200' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 200, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(false)
+    end
+
+    it 'returns true for status 500' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 500, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(true)
+      expect(response.client_error?).to be(false)
+    end
+
+    it 'returns true for status 503' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 503, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(true)
+    end
+
+    it 'returns false for status 404' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 404, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(false)
+    end
+
+    it 'returns false for status 100' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 100, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(false)
+    end
+
+    it 'returns false for status 300' do
+      stub_request(:get, 'https://api.example.com/edge')
+        .to_return(status: 300, body: '')
+
+      response = client.get('/edge')
+
+      expect(response.server_error?).to be(false)
+    end
+  end
+
   describe 'Response#json memoization' do
     it 'caches parsed JSON across multiple calls' do
       stub_request(:get, 'https://api.example.com/data')

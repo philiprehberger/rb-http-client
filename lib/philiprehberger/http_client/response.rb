@@ -29,6 +29,20 @@ module Philiprehberger
         status >= 200 && status < 300
       end
 
+      # Returns true if the status code is in the 4xx range.
+      #
+      # @return [Boolean]
+      def client_error?
+        status >= 400 && status < 500
+      end
+
+      # Returns true if the status code is in the 5xx range.
+      #
+      # @return [Boolean]
+      def server_error?
+        status >= 500 && status < 600
+      end
+
       # Returns true if the response was streamed.
       #
       # @return [Boolean]
