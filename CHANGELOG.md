@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-05-13
+
+### Added
+- `Response#header(name)` — case-insensitive header value accessor. Returns `nil` when the header is absent.
+
+### Changed
+- `Response#json?` now delegates to `Response#header` for Content-Type lookup.
+
 ## [0.10.0] - 2026-05-07
 
 ### Added
@@ -186,7 +194,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.8.2...v0.9.0

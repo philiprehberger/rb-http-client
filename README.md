@@ -424,6 +424,18 @@ client.delete("/resource/1")
 client.head("/resource")
 ```
 
+### Case-insensitive header lookup
+
+`Response#header` returns the value for a header regardless of capitalization, returning `nil` when it is missing:
+
+```ruby
+response = client.head("/resource")
+
+response.header("Content-Type")  # => "application/json"
+response.header("etag")           # works for any casing
+response.header("X-Missing")      # => nil
+```
+
 ## API
 
 ### `Philiprehberger::HttpClient.new(**options)`
@@ -493,6 +505,7 @@ client.head("/resource")
 | `status`  | Integer | HTTP status code                |
 | `body`    | String  | Raw response body (`nil` if streamed) |
 | `headers` | Hash    | Response headers                |
+| `header(name)` | String | Header value for `name` (case-insensitive), `nil` if absent |
 | `ok?`     | Boolean | `true` if status is 200-299     |
 | `client_error?` | Boolean | Returns true for 4xx status codes |
 | `server_error?` | Boolean | Returns true for 5xx status codes |

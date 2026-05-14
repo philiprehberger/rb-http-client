@@ -2159,6 +2159,28 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe 'Response#header' do
+    it 'returns the value for an exact match' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'Content-Type' => 'application/json' }
+      )
+      expect(response.header('Content-Type')).to eq('application/json')
+    end
+
+    it 'matches case-insensitively' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 302, body: '', headers: { 'Location' => 'https://example.com/' }
+      )
+      expect(response.header('location')).to eq('https://example.com/')
+      expect(response.header(:LOCATION)).to eq('https://example.com/')
+    end
+
+    it 'returns nil when the header is absent' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: '')
+      expect(response.header('X-Missing')).to be_nil
+    end
+  end
+
   describe '#close' do
     it 'can be called without error when pooling is disabled' do
       expect { client.close }.not_to raise_error

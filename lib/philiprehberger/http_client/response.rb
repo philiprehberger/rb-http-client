@@ -58,6 +58,17 @@ module Philiprehberger
         @json ||= JSON.parse(body)
       end
 
+      # Returns the header value for `name`, matching case-insensitively.
+      # Returns `nil` when the header is not present.
+      #
+      # @param name [String, Symbol] header name (case-insensitive)
+      # @return [String, nil]
+      def header(name)
+        key = name.to_s.downcase
+        headers.each { |k, v| return v if k.to_s.downcase == key }
+        nil
+      end
+
       # Returns true if the `Content-Type` response header advertises JSON.
       # Matches `application/json`, `application/problem+json`, and any
       # other `+json` structured-syntax suffix defined by RFC 6838.
@@ -65,11 +76,11 @@ module Philiprehberger
       #
       # @return [Boolean]
       def json?
-        header = headers.find { |k, _| k.to_s.downcase == 'content-type' }
-        return false unless header
+        value = header('content-type')
+        return false unless value
 
-        value = header[1].to_s.downcase.split(';').first.to_s.strip
-        value == 'application/json' || value.end_with?('+json')
+        primary = value.to_s.downcase.split(';').first.to_s.strip
+        primary == 'application/json' || primary.end_with?('+json')
       end
 
       # Returns request timing metrics (nil if not available).
