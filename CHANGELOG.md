@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-14
+
+### Changed
+- Added package card image to README
+- Cleaned up Installation section formatting
+
 ## [0.11.0] - 2026-05-13
 
 ### Added
@@ -194,7 +200,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.0...v0.9.1

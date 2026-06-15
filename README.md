@@ -4,6 +4,8 @@
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-http_client.svg)](https://rubygems.org/gems/philiprehberger-http_client)
 [![Last updated](https://img.shields.io/github/last-commit/philiprehberger/rb-http-client)](https://github.com/philiprehberger/rb-http-client/commits/main)
 
+![philiprehberger-http_client](https://raw.githubusercontent.com/philiprehberger/rb-http-client/main/package-card.webp)
+
 Lightweight HTTP client wrapper with retries and interceptors
 
 ## Requirements
@@ -16,12 +18,6 @@ Add to your Gemfile:
 
 ```ruby
 gem "philiprehberger-http_client"
-```
-
-Then run:
-
-```bash
-bundle install
 ```
 
 Or install directly:
