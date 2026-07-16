@@ -114,6 +114,120 @@ RSpec.describe Philiprehberger::HttpClient::Cache do
     end
   end
 
+  describe '#refresh' do
+    it 'returns the stored response (with body) for a cached URI' do
+      stored = make_response(body: 'cached-body', headers: { 'etag' => '"v1"' })
+      cache.store(uri, stored)
+
+      not_modified = make_response(status: 304, body: nil)
+      refreshed = cache.refresh(uri, not_modified)
+
+      expect(refreshed).to eq(stored)
+      expect(refreshed.body).to eq('cached-body')
+    end
+
+    it 'returns nil when no entry exists for the URI' do
+      not_modified = make_response(status: 304, body: nil)
+      expect(cache.refresh(uri, not_modified)).to be_nil
+    end
+
+    it 'resets freshness so an expired entry becomes servable again' do
+      stored = make_response(body: 'cached-body', headers: { 'cache-control' => 'max-age=0', 'etag' => '"v1"' })
+      cache.store(uri, stored)
+      expect(cache.lookup(uri)).to be_nil # expired
+
+      not_modified = make_response(status: 304, body: nil, headers: { 'cache-control' => 'max-age=3600' })
+      cache.refresh(uri, not_modified)
+
+      expect(cache.lookup(uri)).to eq(stored)
+    end
+
+    it 'adopts a new max-age from the 304 response' do
+      stored = make_response(body: 'cached-body', headers: { 'cache-control' => 'max-age=0', 'etag' => '"v1"' })
+      cache.store(uri, stored)
+
+      cache.refresh(uri, make_response(status: 304, body: nil, headers: { 'cache-control' => 'max-age=600' }))
+
+      entry = cache.entry_for(uri)
+      expect(entry.max_age).to eq(600)
+    end
+
+    it 'adopts a new ETag from the 304 response' do
+      stored = make_response(body: 'cached-body', headers: { 'etag' => '"v1"' })
+      cache.store(uri, stored)
+
+      cache.refresh(uri, make_response(status: 304, body: nil, headers: { 'etag' => '"v2"' }))
+
+      expect(cache.entry_for(uri).etag).to eq('"v2"')
+    end
+
+    it 'keeps the previous ETag when the 304 omits one' do
+      stored = make_response(body: 'cached-body', headers: { 'etag' => '"v1"' })
+      cache.store(uri, stored)
+
+      cache.refresh(uri, make_response(status: 304, body: nil))
+
+      expect(cache.entry_for(uri).etag).to eq('"v1"')
+    end
+  end
+
+  describe 'bounded LRU eviction' do
+    it 'defaults max_entries to 1000' do
+      expect(described_class.new.max_entries).to eq(1000)
+    end
+
+    it 'accepts a custom max_entries' do
+      expect(described_class.new(max_entries: 5).max_entries).to eq(5)
+    end
+
+    it 'raises ArgumentError for a non-positive max_entries' do
+      expect { described_class.new(max_entries: 0) }.to raise_error(ArgumentError)
+      expect { described_class.new(max_entries: -1) }.to raise_error(ArgumentError)
+      expect { described_class.new(max_entries: 'many') }.to raise_error(ArgumentError)
+    end
+
+    it 'never grows beyond max_entries' do
+      bounded = described_class.new(max_entries: 3)
+      5.times do |i|
+        bounded.store(URI.parse("https://api.example.com/#{i}"), make_response(body: "b#{i}"))
+      end
+
+      expect(bounded.size).to eq(3)
+    end
+
+    it 'evicts the least recently used entry first' do
+      bounded = described_class.new(max_entries: 2)
+      a = URI.parse('https://api.example.com/a')
+      b = URI.parse('https://api.example.com/b')
+      c = URI.parse('https://api.example.com/c')
+
+      bounded.store(a, make_response(body: 'a'))
+      bounded.store(b, make_response(body: 'b'))
+      # Touch 'a' so 'b' becomes the least recently used
+      bounded.lookup(a)
+      bounded.store(c, make_response(body: 'c'))
+
+      expect(bounded.lookup(a)).not_to be_nil
+      expect(bounded.lookup(b)).to be_nil # evicted
+      expect(bounded.lookup(c)).not_to be_nil
+    end
+
+    it 'treats refresh as a use for LRU purposes' do
+      bounded = described_class.new(max_entries: 2)
+      a = URI.parse('https://api.example.com/a')
+      b = URI.parse('https://api.example.com/b')
+      c = URI.parse('https://api.example.com/c')
+
+      bounded.store(a, make_response(body: 'a', headers: { 'etag' => '"a"' }))
+      bounded.store(b, make_response(body: 'b'))
+      bounded.refresh(a, make_response(status: 304, body: nil))
+      bounded.store(c, make_response(body: 'c'))
+
+      expect(bounded.lookup(a)).not_to be_nil
+      expect(bounded.lookup(b)).to be_nil
+    end
+  end
+
   describe '#clear!' do
     it 'removes all entries' do
       cache.store(uri, make_response)

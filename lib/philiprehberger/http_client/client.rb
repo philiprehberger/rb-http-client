@@ -20,6 +20,8 @@ module Philiprehberger
       # @param retries [Integer] Number of retry attempts on network errors
       # @param retry_delay [Numeric] Seconds to wait between retries
       # @param retry_backoff [Symbol] Backoff strategy (:fixed or :exponential)
+      # @param retry_jitter [Boolean] Randomize backoff delay with full jitter (default: false)
+      # @param retry_max_delay [Numeric] Upper bound (seconds) on any computed backoff delay (default: 30.0)
       # @param cookies [Boolean] Enable cookie jar for automatic cookie handling
       # @param proxy [String, nil] Proxy URL (e.g., "http://proxy:8080"), also reads HTTP_PROXY/HTTPS_PROXY
       # @param follow_redirects [Boolean] Follow 3xx redirects (default: true)
@@ -27,6 +29,7 @@ module Philiprehberger
       # @param pool [Boolean, nil] Enable connection pooling (default: false)
       # @param pool_size [Integer, nil] Maximum connections per host:port (default: 5)
       # @param cache [Boolean, nil] Enable response caching for GET requests (default: false)
+      # @param cache_max_entries [Integer, nil] Maximum cached entries before LRU eviction (default: 1000)
       # @param on_request [Proc, nil] Callback invoked after each request with (method, uri, status, duration)
       def initialize(base_url:, headers: {}, timeout: 30, **opts)
         @base_url = base_url.chomp('/')
@@ -252,6 +255,12 @@ module Philiprehberger
         unless %i[fixed exponential].include?(@retry_backoff)
           raise ConfigurationError, "retry_backoff must be :fixed or :exponential, got #{@retry_backoff.inspect}"
         end
+        unless [true, false].include?(@retry_jitter)
+          raise ConfigurationError, "retry_jitter must be true or false, got #{@retry_jitter.inspect}"
+        end
+        unless @retry_max_delay.is_a?(Numeric) && !@retry_max_delay.negative?
+          raise ConfigurationError, "retry_max_delay must be a non-negative Numeric, got #{@retry_max_delay.inspect}"
+        end
         return if @retry_on_status.nil?
         return if @retry_on_status.respond_to?(:include?)
 
@@ -262,6 +271,8 @@ module Philiprehberger
         @retries = opts.fetch(:retries, 0)
         @retry_delay = opts.fetch(:retry_delay, 1)
         @retry_backoff = opts.fetch(:retry_backoff, :fixed)
+        @retry_jitter = opts.fetch(:retry_jitter, false)
+        @retry_max_delay = opts.fetch(:retry_max_delay, 30.0)
         @retry_on_status = opts[:retry_on_status]
       end
 
@@ -285,7 +296,17 @@ module Philiprehberger
       end
 
       def assign_cache_opts(opts)
-        @cache = opts[:cache] ? Cache.new : nil
+        unless opts[:cache]
+          @cache = nil
+          return
+        end
+
+        max_entries = opts.fetch(:cache_max_entries, Cache::DEFAULT_MAX_ENTRIES)
+        unless max_entries.is_a?(Integer) && max_entries.positive?
+          raise ConfigurationError, "cache_max_entries must be a positive Integer, got #{max_entries.inspect}"
+        end
+
+        @cache = Cache.new(max_entries: max_entries)
       end
 
       def lookup_cache(uri, extra_headers)

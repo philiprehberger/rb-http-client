@@ -202,6 +202,12 @@ client = Philiprehberger::HttpClient.new(
 )
 ```
 
+When retrying on a status code, a `Retry-After` response header is honored as the
+delay before the next attempt. Both delta-seconds (`Retry-After: 120`) and HTTP-date
+(`Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`) forms are supported. The value is
+clamped to a sane ceiling (300s) to guard against hostile headers, and the configured
+backoff is used whenever the header is absent.
+
 ### Exponential backoff
 
 ```ruby
@@ -212,6 +218,22 @@ client = Philiprehberger::HttpClient.new(
   retry_backoff: :exponential
 )
 # Delay sequence: 1s, 2s, 4s
+```
+
+Computed delays are capped at `retry_max_delay` (default 30s) so exponential growth
+never runs away. Enable `retry_jitter` to spread retries with full jitter — each delay
+becomes a random value between `0` and the capped delay, which helps avoid thundering-herd
+retries against a recovering server:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  retries: 5,
+  retry_delay: 1,
+  retry_backoff: :exponential,
+  retry_jitter: true,   # randomize each delay (default: false)
+  retry_max_delay: 20    # cap any single delay at 20s (default: 30.0)
+)
 ```
 
 ### Cookie jar
@@ -372,10 +394,23 @@ response = client.get("/data")
 response = client.get("/data")
 
 # Conditional requests: sends If-None-Match / If-Modified-Since
-# when cache entry has ETag or Last-Modified
+# when cache entry has ETag or Last-Modified. A 304 Not Modified
+# refreshes the stored entry and returns its body (not the empty 304).
 
 # Flush the cache
 client.clear_cache!
+```
+
+The cache is bounded — once it holds `cache_max_entries` responses (default 1000),
+the least recently used entry is evicted on the next insert, so a long-lived client
+cannot grow the cache without limit:
+
+```ruby
+client = Philiprehberger::HttpClient.new(
+  base_url: "https://api.example.com",
+  cache: true,
+  cache_max_entries: 500   # LRU eviction beyond 500 entries (default: 1000)
+)
 ```
 
 ### Request logging callback
@@ -447,7 +482,9 @@ response.header("X-Missing")      # => nil
 | `retries`     | Integer | `0`     | Retry attempts on network errors     |
 | `retry_delay` | Numeric | `1`     | Seconds between retries              |
 | `retry_backoff` | Symbol | `:fixed` | Backoff strategy — `:fixed` or `:exponential` |
-| `retry_on_status` | Array | `nil` | HTTP status codes to retry on (e.g., `[429, 503]`) |
+| `retry_jitter` | Boolean | `false` | Randomize each backoff delay with full jitter |
+| `retry_max_delay` | Numeric | `30.0` | Upper bound (seconds) on any computed backoff delay |
+| `retry_on_status` | Array | `nil` | HTTP status codes to retry on (e.g., `[429, 503]`); honors `Retry-After` |
 | `cookies` | Boolean | `false` | Enable cookie jar for automatic cookie handling |
 | `proxy` | String | `nil` | Proxy URL (also reads `HTTP_PROXY`/`HTTPS_PROXY` env vars) |
 | `follow_redirects` | Boolean | `true` | Follow 3xx redirects automatically |
@@ -455,6 +492,7 @@ response.header("X-Missing")      # => nil
 | `pool` | Boolean | `false` | Enable connection pooling |
 | `pool_size` | Integer | `5` | Maximum connections per host:port |
 | `cache` | Boolean | `false` | Enable in-memory GET response caching |
+| `cache_max_entries` | Integer | `1000` | Maximum cached entries before least-recently-used eviction |
 | `on_request` | Proc | `nil` | Callback invoked after each request with `(method, uri, status, duration)` |
 
 ### Methods

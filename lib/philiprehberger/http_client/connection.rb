@@ -75,8 +75,8 @@ module Philiprehberger
         run_interceptors(context)
         response = perform_with_retries(uri, request, **timeout_opts, &)
         response = follow_redirect_chain(response, request, **timeout_opts) if should_follow_redirect?(response)
+        response = handle_cacheable_get(uri, request, response)
         response.instance_variable_set(:@request_id, request_id)
-        cache_response(uri, response) if @cache && request.is_a?(Net::HTTP::Get)
         context[:response] = response
         run_interceptors(context)
         notify_on_request(context[:request][:method], uri, response)
@@ -240,6 +240,24 @@ module Philiprehberger
         return unless @pool
 
         @pool.checkin(uri, http)
+      end
+
+      # Cache-aware post-processing for GET responses. On a 304 Not Modified
+      # for a URI we hold a cache entry for, the stored (bodied) response is
+      # refreshed and returned in place of the bodyless 304; otherwise the
+      # response is stored (when cacheable) and returned unchanged.
+      def handle_cacheable_get(uri, request, response)
+        return response unless @cache && request.is_a?(Net::HTTP::Get)
+
+        if response.status == 304
+          refreshed = @cache.refresh(uri, response)
+          return refreshed if refreshed
+
+          return response
+        end
+
+        cache_response(uri, response)
+        response
       end
 
       def cache_response(uri, response)

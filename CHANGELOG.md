@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-07-15
+
+### Added
+- `Retry-After` response header support on retryable status codes — honors both delta-seconds and HTTP-date forms as the retry delay, clamped to a 300s ceiling (falls back to the configured backoff when absent)
+- `retry_jitter:` option (default `false`) — spreads retries with full jitter over the computed delay
+- `retry_max_delay:` option (default `30.0`) — caps any single backoff delay so exponential growth cannot run away
+- `cache_max_entries:` option (default `1000`) and `Cache#refresh` — the response cache is now bounded with least-recently-used eviction, preventing unbounded growth in long-lived clients
+
+### Fixed
+- 304 Not Modified revalidation now returns the stored response (with body) and refreshes its freshness/ETag/Last-Modified, instead of returning the empty-body 304 and dropping the cached content
+
 ## [0.11.1] - 2026-06-14
 
 ### Changed
@@ -200,7 +211,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.9.1...v0.10.0

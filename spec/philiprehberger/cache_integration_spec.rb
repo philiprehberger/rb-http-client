@@ -153,6 +153,65 @@ RSpec.describe 'Response caching integration' do
     end
   end
 
+  describe '304 Not Modified revalidation' do
+    it 'serves the stored body when the server replies 304' do
+      client = Philiprehberger::HttpClient.new(base_url: base_url, cache: true)
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(
+          status: 200,
+          body: 'original-body',
+          headers: { 'cache-control' => 'max-age=0', 'etag' => '"abc123"' }
+        )
+
+      client.get('/data') # prime the cache
+
+      stub_request(:get, 'https://api.example.com/data')
+        .with(headers: { 'If-None-Match' => '"abc123"' })
+        .to_return(status: 304, body: '')
+
+      response = client.get('/data')
+
+      expect(response.status).to eq(200)
+      expect(response.body).to eq('original-body')
+    end
+
+    it 'refreshes freshness so a subsequent read is served from cache without a request' do
+      client = Philiprehberger::HttpClient.new(base_url: base_url, cache: true)
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(
+          status: 200,
+          body: 'original-body',
+          headers: { 'cache-control' => 'max-age=0', 'etag' => '"abc123"' }
+        )
+      client.get('/data')
+
+      revalidate = stub_request(:get, 'https://api.example.com/data')
+                   .with(headers: { 'If-None-Match' => '"abc123"' })
+                   .to_return(status: 304, body: '', headers: { 'cache-control' => 'max-age=3600' })
+      client.get('/data') # 304 refreshes with a 1-hour max-age
+
+      # Now fresh — served from cache, no new request
+      response = client.get('/data')
+      expect(response.body).to eq('original-body')
+      expect(revalidate).to have_been_requested.once
+    end
+
+    it 'assigns the current request id to the revalidated response' do
+      client = Philiprehberger::HttpClient.new(base_url: base_url, cache: true)
+
+      stub_request(:get, 'https://api.example.com/data')
+        .to_return(status: 200, body: 'original-body', headers: { 'cache-control' => 'max-age=0', 'etag' => '"abc123"' })
+      client.get('/data')
+
+      stub_request(:get, 'https://api.example.com/data').to_return(status: 304, body: '')
+
+      response = client.get('/data', request_id: 'custom-304-id')
+      expect(response.request_id).to eq('custom-304-id')
+    end
+  end
+
   describe 'does not cache error responses' do
     it 'does not cache 4xx responses' do
       client = Philiprehberger::HttpClient.new(base_url: base_url, cache: true)
