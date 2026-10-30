@@ -2,6 +2,6 @@
 
 module Philiprehberger
   module HttpClient
-    VERSION = '0.12.0'
+    VERSION = '0.13.0'
   end
 end

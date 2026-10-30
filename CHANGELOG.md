@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-10-30
+
+### Added
+- `Response#raise_for_status!` — returns `self` on 2xx/3xx responses and raises `HttpError` (with `.response`) on 4xx/5xx, enabling chained calls like `client.get(path).raise_for_status!.json`
+- `Response#content_type` — media type from the `Content-Type` header without parameters (e.g. `"application/json"`), `nil` if absent
+- `Response#content_length` — `Content-Length` header as an Integer, `nil` if absent or invalid
+
+### Changed
+- Aligned `.gitignore` with the standard gem template
+- Aligned CI workflow with the standard template (`ruby` matrix key, glob gemspec in build/push)
+
 ## [0.12.0] - 2026-07-15
 
 ### Added
@@ -211,7 +222,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Response wrapper with `ok?` and `json` convenience methods
 - Zero dependencies — built on Ruby stdlib `net/http`
 
-[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/philiprehberger/rb-http-client/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.1...v0.12.0
 [0.11.1]: https://github.com/philiprehberger/rb-http-client/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/philiprehberger/rb-http-client/compare/v0.10.0...v0.11.0

@@ -2181,6 +2181,107 @@ RSpec.describe Philiprehberger::HttpClient do
     end
   end
 
+  describe 'Response#content_type' do
+    it 'returns the media type without parameters' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '{}', headers: { 'Content-Type' => 'application/json; charset=utf-8' }
+      )
+      expect(response.content_type).to eq('application/json')
+    end
+
+    it 'downcases the media type and matches the header case-insensitively' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'content-type' => 'Text/HTML' }
+      )
+      expect(response.content_type).to eq('text/html')
+    end
+
+    it 'returns nil when the header is absent' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: '')
+      expect(response.content_type).to be_nil
+    end
+
+    it 'returns nil when the header is blank' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'Content-Type' => '  ' }
+      )
+      expect(response.content_type).to be_nil
+    end
+  end
+
+  describe 'Response#content_length' do
+    it 'returns the header value as an Integer' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: 'hello', headers: { 'Content-Length' => '5' }
+      )
+      expect(response.content_length).to eq(5)
+    end
+
+    it 'matches the header case-insensitively' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'content-length' => '0' }
+      )
+      expect(response.content_length).to eq(0)
+    end
+
+    it 'returns nil when the header is absent' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: '')
+      expect(response.content_length).to be_nil
+    end
+
+    it 'returns nil for a non-numeric value' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'Content-Length' => 'abc' }
+      )
+      expect(response.content_length).to be_nil
+    end
+
+    it 'returns nil for a negative value' do
+      response = Philiprehberger::HttpClient::Response.new(
+        status: 200, body: '', headers: { 'Content-Length' => '-1' }
+      )
+      expect(response.content_length).to be_nil
+    end
+
+    it 'reads the header from a real HEAD response' do
+      stub_request(:head, 'https://api.example.com/file')
+        .to_return(status: 200, headers: { 'Content-Length' => '1024' })
+
+      expect(client.head('/file').content_length).to eq(1024)
+    end
+  end
+
+  describe 'Response#raise_for_status!' do
+    it 'returns self for a 2xx response' do
+      response = Philiprehberger::HttpClient::Response.new(status: 200, body: 'ok')
+      expect(response.raise_for_status!).to be(response)
+    end
+
+    it 'returns self for a 3xx response' do
+      response = Philiprehberger::HttpClient::Response.new(status: 304, body: '')
+      expect(response.raise_for_status!).to be(response)
+    end
+
+    it 'raises HttpError for a 4xx response' do
+      response = Philiprehberger::HttpClient::Response.new(status: 404, body: 'not found')
+      expect { response.raise_for_status! }.to raise_error(Philiprehberger::HttpClient::HttpError, /HTTP 404/)
+    end
+
+    it 'raises HttpError for a 5xx response with the response attached' do
+      response = Philiprehberger::HttpClient::Response.new(status: 503, body: 'down')
+      expect { response.raise_for_status! }.to raise_error(Philiprehberger::HttpClient::HttpError) { |error|
+        expect(error.response).to be(response)
+      }
+    end
+
+    it 'can be chained from a request' do
+      stub_request(:get, 'https://api.example.com/users')
+        .to_return(status: 200, body: '[{"id":1}]', headers: { 'Content-Type' => 'application/json' })
+
+      expect(client.get('/users').raise_for_status!.json).to eq([{ 'id' => 1 }])
+    end
+  end
+
   describe '#close' do
     it 'can be called without error when pooling is disabled' do
       expect { client.close }.not_to raise_error

@@ -83,6 +83,45 @@ module Philiprehberger
         primary == 'application/json' || primary.end_with?('+json')
       end
 
+      # Returns the media type from the `Content-Type` header without any
+      # parameters (e.g. `"application/json"` for
+      # `"application/json; charset=utf-8"`). The value is downcased.
+      #
+      # @return [String, nil] the media type, or `nil` if the header is absent or blank
+      def content_type
+        value = header('content-type')
+        return nil if value.nil?
+
+        media_type = value.to_s.split(';').first.to_s.strip.downcase
+        media_type.empty? ? nil : media_type
+      end
+
+      # Returns the `Content-Length` header as an Integer.
+      #
+      # @return [Integer, nil] the declared body length, or `nil` if the header
+      #   is absent or not a valid non-negative integer
+      def content_length
+        value = header('content-length')
+        return nil if value.nil?
+
+        length = Integer(value.to_s.strip, 10, exception: false)
+        length&.negative? ? nil : length
+      end
+
+      # Raises {HttpError} if the response has a 4xx or 5xx status code.
+      # Returns `self` otherwise so the call can be chained.
+      #
+      # @example
+      #   data = client.get('/users').raise_for_status!.json
+      #
+      # @return [self]
+      # @raise [HttpError] if the status code is 400 or greater
+      def raise_for_status!
+        raise HttpError, self if status >= 400
+
+        self
+      end
+
       # Returns request timing metrics (nil if not available).
       #
       # @return [Metrics, nil]

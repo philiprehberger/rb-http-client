@@ -467,6 +467,25 @@ response.header("etag")           # works for any casing
 response.header("X-Missing")      # => nil
 ```
 
+### Content metadata and status checks
+
+`Response#content_type` returns the media type without parameters, `Response#content_length` parses the `Content-Length` header, and `Response#raise_for_status!` raises `HttpError` on 4xx/5xx while returning the response otherwise:
+
+```ruby
+response = client.get("/report")
+
+response.content_type    # => "application/json" (from "application/json; charset=utf-8")
+response.content_length  # => 2048, or nil if the header is absent
+
+data = client.get("/users").raise_for_status!.json
+
+begin
+  client.get("/missing").raise_for_status!
+rescue Philiprehberger::HttpClient::HttpError => e
+  e.response.status  # => 404
+end
+```
+
 ## API
 
 ### `Philiprehberger::HttpClient.new(**options)`
@@ -545,6 +564,9 @@ response.header("X-Missing")      # => nil
 | `server_error?` | Boolean | Returns true for 5xx status codes |
 | `json`    | Hash    | Parsed JSON body                |
 | `json?`   | Boolean | `true` if `Content-Type` is `application/json` or `+json` suffix |
+| `content_type` | String | Media type without parameters (e.g. `"application/json"`), `nil` if absent |
+| `content_length` | Integer | `Content-Length` header as an Integer, `nil` if absent or invalid |
+| `raise_for_status!` | Response | Returns `self` on 1xx-3xx, raises `HttpError` (with `.response`) on 4xx/5xx |
 | `streaming?` | Boolean | `true` if response was streamed |
 | `metrics` | Metrics | Request timing breakdown (total_time, first_byte_time, etc.) |
 | `redirects` | Array | Redirect chain URLs (empty if no redirects) |
